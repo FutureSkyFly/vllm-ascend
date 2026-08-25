@@ -31,6 +31,7 @@ if TYPE_CHECKING:
     from vllm.config import VllmConfig
 
 _MEGA_MOE_SUPPORTED = importlib.util.find_spec("cann_ops_transformer") is not None
+_MEGA_MOE_MIN_TOKENS_UPPER_BOUND = 4096
 
 
 def is_mega_moe_supported() -> bool:
@@ -392,6 +393,7 @@ class AscendConfig:
     mix_placement: bool = False
     pa_shape_list: list[Any] = dataclasses.field(default_factory=list)
     mega_moe_max_tokens: int = 131072
+    mega_moe_min_tokens: int = 512
     ascend_log_path: str = dataclasses.field(
         default_factory=lambda: os.path.join(os.path.expanduser("~"), "ascend", "log", "vllm_ascend")
     )
@@ -446,6 +448,11 @@ class AscendConfig:
     def _validate_user_input_ranges(self):
         if self.weight_nz_mode not in (0, 1, 2):
             raise ValueError(f"weight_nz_mode must be one of 0, 1, or 2; got {self.weight_nz_mode}")
+        if not 1 <= self.mega_moe_min_tokens <= _MEGA_MOE_MIN_TOKENS_UPPER_BOUND:
+            raise ValueError(
+                "mega_moe_min_tokens must be in "
+                f"[1, {_MEGA_MOE_MIN_TOKENS_UPPER_BOUND}], got {self.mega_moe_min_tokens}"
+            )
         # TODO(zzzzwwjj): remove it after deprecating `enable_mc2_hierarchy_comm`.
         if self.enable_mc2_hierarchy_comm:
             self.mc2_comm_alg = "hierarchy"
@@ -751,7 +758,10 @@ class AscendConfig:
         moe_intermediate_size = getattr(hf_text_config, "moe_intermediate_size", None)
         if moe_intermediate_size is None:
             return False
-        if moe_intermediate_size < 1024 or moe_intermediate_size > 3072 or moe_intermediate_size % 512 != 0:
+        # cann_ops_transformer mega_moe doc (A2/A3 parameter constraints):
+        # 512 <= intermediate_hidden <= 3072 and intermediate_hidden % 512 == 0.
+        # Qwen3.5/3.6-35B-A3B sits at the 512 lower bound.
+        if moe_intermediate_size < 512 or moe_intermediate_size > 3072 or moe_intermediate_size % 512 != 0:
             return False
 
         quant_type = getattr(hf_text_config, "moe_quantize", getattr(hf_text_config, "quantize", None))

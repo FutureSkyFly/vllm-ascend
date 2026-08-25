@@ -198,6 +198,7 @@ from vllm_ascend.worker.utils import AscendKVBlockZeroer
 
 from vllm_ascend.ascend_forward_context import (  # isort: skip
     MoECommType,
+    _is_a2_megamoe_enabled,
     get_mc2_tokens_capacity,
     select_moe_comm_method,
     set_ascend_forward_context,
@@ -348,6 +349,7 @@ class NPUModelRunner(GPUModelRunner):
         # Ascend-specific configurations
         self.ascend_config = get_ascend_config()
         self.use_score_encoder_cache = is_score_encoder_cache_manager(self.vllm_config)
+        self._a2_megamoe_decode_graph_safe = False
 
         # Dump / PrecisionDebugger configuration now comes from AscendConfig
         dump_cfg = self.ascend_config.dump_config_path
@@ -2347,6 +2349,9 @@ class NPUModelRunner(GPUModelRunner):
         # encoder inputs are present. Use eager for the first pass.
         num_encoder_reqs = len(scheduler_output.scheduled_encoder_inputs)
         has_encoder_input = self.model_config.is_encoder_decoder and num_encoder_reqs > 0
+        skip_compiled_megamoe_runtime = _is_a2_megamoe_enabled(self.ascend_config) and not (
+            self._a2_megamoe_decode_graph_safe and cudagraph_mode != CUDAGraphMode.NONE
+        )
 
         # Run forward pass
         defer_kv_connector_finalize = self.speculative_config is not None and (
@@ -2363,7 +2368,7 @@ class NPUModelRunner(GPUModelRunner):
                 batch_descriptor=batch_desc,
                 num_actual_tokens=scheduler_output.total_num_scheduled_tokens,
                 model_instance=self.model,
-                skip_compiled=has_encoder_input,
+                skip_compiled=has_encoder_input or skip_compiled_megamoe_runtime,
                 has_sinks=self._has_sinks,
                 eplb_heat_collection_status=self.eplb_heat_collection_status if self.dynamic_eplb else False,
             ),
@@ -2977,7 +2982,9 @@ class NPUModelRunner(GPUModelRunner):
         force_has_lora: bool | None = None,
         force_num_active_loras: int | None = None,
         num_encoder_reqs: int = 0,
+        is_graph_capturing: bool = False,
     ) -> tuple[CUDAGraphMode, BatchDescriptor, bool, torch.Tensor | None, CUDAGraphStat | None]:
+        self._a2_megamoe_decode_graph_safe = False
         num_tokens_padded = self._pad_for_sequence_parallelism(num_tokens)
         # A stateful P/D handoff can use a uniform decode graph even at
         # prompt_len - 1 computed tokens. Keep first-token prefills out.
@@ -3046,6 +3053,12 @@ class NPUModelRunner(GPUModelRunner):
                 # Assert to make sure the agreed upon token count is correct otherwise
                 # num_tokens_across_dp will no-longer be valid
                 assert batch_descriptor.num_tokens == num_tokens_padded
+        self._a2_megamoe_decode_graph_safe = bool(
+            _is_a2_megamoe_enabled(self.ascend_config)
+            and uniform_decode
+            and (is_graph_capturing or is_all_decode)
+            and cudagraph_mode != CUDAGraphMode.NONE
+        )
         cudagraph_stats = None
         if self.vllm_config.observability_config.cudagraph_metrics:
             cudagraph_stats = CUDAGraphStat(
@@ -3470,6 +3483,7 @@ class NPUModelRunner(GPUModelRunner):
             # LoRA state when determining the batch descriptor for capture
             force_has_lora=num_active_loras > 0,
             force_num_active_loras=num_active_loras,
+            is_graph_capturing=is_graph_capturing,
         )
         if self.use_dcp:
             self.dcp_manager.init_batch_info(
@@ -3657,6 +3671,7 @@ class NPUModelRunner(GPUModelRunner):
                 aclgraph_runtime_mode=cudagraph_runtime_mode,
                 batch_descriptor=batch_desc,
                 model_instance=self.model,
+                skip_compiled=is_profile and _is_a2_megamoe_enabled(self.ascend_config),
                 has_sinks = self._has_sinks,
                 eplb_heat_collection_status=self.eplb_heat_collection_status if self.dynamic_eplb else False,
             ):
