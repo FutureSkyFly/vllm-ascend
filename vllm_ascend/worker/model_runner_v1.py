@@ -3056,7 +3056,7 @@ class NPUModelRunner(GPUModelRunner):
         self._a2_megamoe_decode_graph_safe = bool(
             _is_a2_megamoe_enabled(self.ascend_config)
             and uniform_decode
-            and (is_graph_capturing or is_all_decode)
+            and (is_graph_capturing or has_initial_state)
             and cudagraph_mode != CUDAGraphMode.NONE
         )
         cudagraph_stats = None

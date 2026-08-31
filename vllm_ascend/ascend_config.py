@@ -32,6 +32,11 @@ if TYPE_CHECKING:
 
 _MEGA_MOE_SUPPORTED = importlib.util.find_spec("cann_ops_transformer") is not None
 _MEGA_MOE_MIN_TOKENS_UPPER_BOUND = 4096
+# cann_ops_transformer mega_moe parameter constraints for Atlas A2/A3
+# ("约束说明 / 参数约束" in ops/mega_moe.md).
+_MEGA_MOE_HIDDEN_RANGE = (1024, 8192)
+_MEGA_MOE_INTERMEDIATE_HIDDEN_RANGE = (512, 3072)
+_MEGA_MOE_DIM_ALIGNMENT = 512
 
 
 def is_mega_moe_supported() -> bool:
@@ -752,16 +757,20 @@ class AscendConfig:
         if hidden_size is None:
             return False
         hidden_size = int(hidden_size)
-        if hidden_size < 1024 or hidden_size > 8192 or hidden_size % 512 != 0:
+        hidden_min, hidden_max = _MEGA_MOE_HIDDEN_RANGE
+        if not hidden_min <= hidden_size <= hidden_max or hidden_size % _MEGA_MOE_DIM_ALIGNMENT != 0:
             return False
 
         moe_intermediate_size = getattr(hf_text_config, "moe_intermediate_size", None)
         if moe_intermediate_size is None:
             return False
-        # cann_ops_transformer mega_moe doc (A2/A3 parameter constraints):
-        # 512 <= intermediate_hidden <= 3072 and intermediate_hidden % 512 == 0.
-        # Qwen3.5/3.6-35B-A3B sits at the 512 lower bound.
-        if moe_intermediate_size < 512 or moe_intermediate_size > 3072 or moe_intermediate_size % 512 != 0:
+        # The op accepts intermediate_hidden down to 512; Qwen3.5/3.6-35B-A3B
+        # (moe_intermediate_size == 512) sits exactly on that lower bound.
+        intermediate_min, intermediate_max = _MEGA_MOE_INTERMEDIATE_HIDDEN_RANGE
+        if (
+            not intermediate_min <= moe_intermediate_size <= intermediate_max
+            or moe_intermediate_size % _MEGA_MOE_DIM_ALIGNMENT != 0
+        ):
             return False
 
         quant_type = getattr(hf_text_config, "moe_quantize", getattr(hf_text_config, "quantize", None))

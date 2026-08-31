@@ -11,7 +11,13 @@ from vllm.distributed import get_dp_group, get_ep_group, get_tensor_model_parall
 from vllm.forward_context import BatchDescriptor, get_forward_context, set_forward_context
 from vllm.logger import logger
 
-from vllm_ascend.ascend_config import get_ascend_config, is_mega_moe_supported
+from vllm_ascend.ascend_config import (
+    _MEGA_MOE_DIM_ALIGNMENT,
+    _MEGA_MOE_HIDDEN_RANGE,
+    _MEGA_MOE_INTERMEDIATE_HIDDEN_RANGE,
+    get_ascend_config,
+    is_mega_moe_supported,
+)
 from vllm_ascend.utils import (
     AscendDeviceType,
     get_ascend_device_type,
@@ -34,6 +40,8 @@ _MEGA_MOE_TOKENS_PER_RANK_LIMIT = 4096
 _DISPATCH_FFN_COMBINE_TOKENS_PER_RANK_LIMIT = 512
 _MC2_TOKENS_PER_RANK_LIMIT = 512
 _A2_CANN_MEGAMOE_SUPPORTED_EP_SIZES = {2, 4, 8, 16, 32}
+_A2_CANN_MEGAMOE_MAX_TOPK = 16
+_A2_CANN_MEGAMOE_MAX_EXPERTS_PER_RANK = 128
 _A2_CANN_MEGAMOE_SUPPORTED_QUANT_NAMES = {
     "w8a8",
     "w4a8",
@@ -106,13 +114,15 @@ def _a2_cann_megamoe_supported_by_config(vllm_config: VllmConfig, is_draft_model
     if num_experts % ep_world_size != 0:
         return False
     num_experts_per_rank = num_experts // ep_world_size
+    hidden_min, hidden_max = _MEGA_MOE_HIDDEN_RANGE
+    intermediate_min, intermediate_max = _MEGA_MOE_INTERMEDIATE_HIDDEN_RANGE
     return (
-        1024 <= hidden_size <= 8192
-        and hidden_size % 512 == 0
-        and 512 <= intermediate_hidden <= 3072
-        and intermediate_hidden % 512 == 0
-        and 1 <= num_topk <= 16
-        and 1 <= num_experts_per_rank <= 128
+        hidden_min <= hidden_size <= hidden_max
+        and hidden_size % _MEGA_MOE_DIM_ALIGNMENT == 0
+        and intermediate_min <= intermediate_hidden <= intermediate_max
+        and intermediate_hidden % _MEGA_MOE_DIM_ALIGNMENT == 0
+        and 1 <= num_topk <= _A2_CANN_MEGAMOE_MAX_TOPK
+        and 1 <= num_experts_per_rank <= _A2_CANN_MEGAMOE_MAX_EXPERTS_PER_RANK
         and _get_a2_cann_megamoe_quant_name(vllm_config) in _A2_CANN_MEGAMOE_SUPPORTED_QUANT_NAMES
     )
 
