@@ -853,6 +853,42 @@ class TestUpstreamConfigCompatibility(TestBase):
         self.assertTrue(AscendConfig._is_megamoe_supported_by_config(supported))
         self.assertFalse(AscendConfig._is_megamoe_supported_by_config(unsupported))
 
+    def test_megamoe_accepts_512_moe_intermediate_size(self):
+        # Qwen3.5/3.6-35B-A3B: hidden 2048, moe_intermediate_size 512. The op
+        # documents intermediate_hidden in [512, 3072] with %512 == 0, so the
+        # smallest documented value must not be rejected.
+        qwen35_a3b = SimpleNamespace(
+            model_config=SimpleNamespace(
+                hf_text_config=SimpleNamespace(
+                    hidden_size=2048,
+                    moe_intermediate_size=512,
+                    moe_quantize="w8a8",
+                )
+            )
+        )
+        below_range = SimpleNamespace(
+            model_config=SimpleNamespace(
+                hf_text_config=SimpleNamespace(
+                    hidden_size=2048,
+                    moe_intermediate_size=256,
+                    moe_quantize="w8a8",
+                )
+            )
+        )
+        above_range = SimpleNamespace(
+            model_config=SimpleNamespace(
+                hf_text_config=SimpleNamespace(
+                    hidden_size=2048,
+                    moe_intermediate_size=3584,
+                    moe_quantize="w8a8",
+                )
+            )
+        )
+
+        self.assertTrue(AscendConfig._is_megamoe_supported_by_config(qwen35_a3b))
+        self.assertFalse(AscendConfig._is_megamoe_supported_by_config(below_range))
+        self.assertFalse(AscendConfig._is_megamoe_supported_by_config(above_range))
+
     @patch(
         "vllm_ascend.device.hardware_profile.get_current_hardware_profile",
         return_value=get_hardware_profile(AscendDeviceType.A2),

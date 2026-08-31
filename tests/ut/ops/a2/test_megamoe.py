@@ -40,15 +40,21 @@ def test_receive_bound_uses_documented_worst_case():
     assert get_cann_megamoe_buffer_params(480, 32, 256, 8) == (512, 8, 32, 131072)
 
 
-def _make_a2_config(*, quantize: str, use_v2_model_runner: bool = False):
+def _make_a2_config(
+    *,
+    quantize: str,
+    use_v2_model_runner: bool = False,
+    hidden_size: int = 4096,
+    moe_intermediate_size: int = 1536,
+):
     model_config = SimpleNamespace(
         hf_text_config=SimpleNamespace(
-            hidden_size=4096,
-            moe_intermediate_size=1536,
+            hidden_size=hidden_size,
+            moe_intermediate_size=moe_intermediate_size,
             num_experts_per_tok=8,
             quantize=quantize,
         ),
-        get_hidden_size=lambda: 4096,
+        get_hidden_size=lambda: hidden_size,
         get_num_experts=lambda: 256,
     )
     return SimpleNamespace(
@@ -67,7 +73,7 @@ def _make_a2_config(*, quantize: str, use_v2_model_runner: bool = False):
 
 @pytest.mark.parametrize("quantize", ["w8a8_dynamic", "w4a8_dynamic"])
 def test_a2_mode_1_selects_megamoe_for_supported_v1_config(monkeypatch, quantize):
-    monkeypatch.setattr(afc, "_MEGA_MOE_SUPPORTED", True)
+    monkeypatch.setattr(afc, "is_mega_moe_supported", lambda: True)
     monkeypatch.setattr(afc, "is_moe_model", lambda _: True)
     monkeypatch.setattr(afc, "get_mc2_tokens_capacity", lambda: 4096)
     monkeypatch.setattr(afc, "get_ascend_device_type", lambda: afc.AscendDeviceType.A2)
@@ -90,7 +96,7 @@ def test_a2_mode_1_selects_megamoe_for_supported_v1_config(monkeypatch, quantize
     [(True, False), (False, True)],
 )
 def test_a2_megamoe_falls_back_for_unvalidated_runner_paths(monkeypatch, is_draft_model, use_v2_model_runner):
-    monkeypatch.setattr(afc, "_MEGA_MOE_SUPPORTED", True)
+    monkeypatch.setattr(afc, "is_mega_moe_supported", lambda: True)
     monkeypatch.setattr(afc, "is_moe_model", lambda _: True)
     monkeypatch.setattr(afc, "get_mc2_tokens_capacity", lambda: 4096)
     monkeypatch.setattr(afc, "get_ascend_device_type", lambda: afc.AscendDeviceType.A2)
@@ -111,3 +117,40 @@ def test_a2_megamoe_falls_back_for_unvalidated_runner_paths(monkeypatch, is_draf
         is_draft_model=is_draft_model,
     )
     assert result == MoECommType.ALLGATHER
+
+
+def _patch_a2_megamoe_env(monkeypatch):
+    monkeypatch.setattr(afc, "is_mega_moe_supported", lambda: True)
+    monkeypatch.setattr(afc, "is_moe_model", lambda _: True)
+    monkeypatch.setattr(afc, "get_mc2_tokens_capacity", lambda: 4096)
+    monkeypatch.setattr(afc, "get_ascend_device_type", lambda: afc.AscendDeviceType.A2)
+    monkeypatch.setattr(afc, "get_ep_group", lambda: SimpleNamespace(world_size=8))
+    monkeypatch.setattr(
+        afc,
+        "get_ascend_config",
+        lambda: SimpleNamespace(
+            enable_fused_mc2=1,
+            mega_moe_min_tokens=512,
+            eplb_config=SimpleNamespace(dynamic_eplb=False),
+        ),
+    )
+
+
+@pytest.mark.parametrize(
+    ("moe_intermediate_size", "expected"),
+    [
+        (512, MoECommType.FUSED_MC2),  # Qwen3.5/3.6-35B-A3B, documented lower bound
+        (3072, MoECommType.FUSED_MC2),  # documented upper bound
+        (256, MoECommType.ALLGATHER),  # below the documented range
+        (3584, MoECommType.ALLGATHER),  # above the documented range
+        (768, MoECommType.ALLGATHER),  # not a multiple of 512
+    ],
+)
+def test_a2_megamoe_intermediate_hidden_range(monkeypatch, moe_intermediate_size, expected):
+    _patch_a2_megamoe_env(monkeypatch)
+    config = _make_a2_config(
+        quantize="w8a8_dynamic",
+        hidden_size=2048,
+        moe_intermediate_size=moe_intermediate_size,
+    )
+    assert afc.select_moe_comm_method(512, config) == expected
