@@ -232,19 +232,20 @@ class TestAscendW4A8DynamicFusedMoEMethod(TestBase):
         self.assertEqual(list_layer.w13_weight_list[0].dtype, torch.int8)
         self.assertTrue(all(weight.storage_offset() == 0 for weight in list_layer.w13_weight_list))
 
-    @patch("vllm_ascend.quantization.methods.w4a8._MEGA_MOE_SUPPORTED", True)
+    @patch("vllm_ascend.quantization.methods.w4a8.w4a8.is_mega_moe_supported", return_value=True)
     @patch(
-        "vllm_ascend.quantization.methods.w4a8._is_a2_megamoe_enabled",
+        "vllm_ascend.quantization.methods.w4a8.w4a8._is_a2_megamoe_enabled",
         return_value=True,
     )
-    @patch("vllm_ascend.quantization.methods.w4a8.get_ascend_config")
-    @patch("vllm_ascend.quantization.methods.w4a8.maybe_trans_nz")
+    @patch("vllm_ascend.quantization.methods.w4a8.w4a8.get_ascend_config")
+    @patch("vllm_ascend.quantization.methods.w4a8.w4a8.maybe_trans_nz")
     @patch("torch.Tensor.npu", new=lambda self: self, create=True)
     def test_a2_megamoe_lists_share_storage_and_preserve_fallback(
         self,
         mock_maybe_trans_nz,
         mock_get_ascend_config,
         mock_is_a2_megamoe_enabled,
+        mock_is_mega_moe_supported,
     ):
         mock_maybe_trans_nz.side_effect = identity
         mock_get_ascend_config.return_value.enable_fused_mc2 = 1
