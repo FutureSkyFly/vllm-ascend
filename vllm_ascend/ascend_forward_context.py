@@ -52,6 +52,12 @@ _A2_CANN_MEGAMOE_SUPPORTED_QUANT_NAMES = {
 }
 
 
+# Memo for _a2_cann_megamoe_supported_by_config: is_draft_model -> (config, answer).
+# The entry keeps a strong reference to the config it was computed for, so an
+# identity check is enough to invalidate it (and a new config recomputes).
+_a2_cann_megamoe_support_cache: dict[bool, tuple[Any, bool]] = {}
+
+
 def _is_a2_megamoe_enabled(ascend_config: Any) -> bool:
     """Return whether the unified fused-MC2 switch selects MegaMoe on A2."""
     return (
@@ -79,6 +85,22 @@ def _get_a2_cann_megamoe_quant_name(vllm_config: VllmConfig) -> str | None:
 
 
 def _a2_cann_megamoe_supported_by_config(vllm_config: VllmConfig, is_draft_model: bool) -> bool:
+    """Whether this model/parallel config can route MoE through CANN MegaMoe.
+
+    Called once per forward from select_moe_comm_method, so the answer is
+    memoized: every input it reads (ascend config, EP group, model shapes,
+    quant description) is fixed for the life of the process, and scanning the
+    modelslim quant description is O(number of quantized tensors).
+    """
+    cached = _a2_cann_megamoe_support_cache.get(is_draft_model)
+    if cached is not None and cached[0] is vllm_config:
+        return cached[1]
+    supported = _compute_a2_cann_megamoe_support(vllm_config, is_draft_model)
+    _a2_cann_megamoe_support_cache[is_draft_model] = (vllm_config, supported)
+    return supported
+
+
+def _compute_a2_cann_megamoe_support(vllm_config: VllmConfig, is_draft_model: bool) -> bool:
     ascend_config = get_ascend_config()
     if (
         is_draft_model
