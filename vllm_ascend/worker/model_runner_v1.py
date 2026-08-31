@@ -2349,8 +2349,14 @@ class NPUModelRunner(GPUModelRunner):
         # encoder inputs are present. Use eager for the first pass.
         num_encoder_reqs = len(scheduler_output.scheduled_encoder_inputs)
         has_encoder_input = self.model_config.is_encoder_decoder and num_encoder_reqs > 0
-        skip_compiled_megamoe_runtime = _is_a2_megamoe_enabled(self.ascend_config) and not (
-            self._a2_megamoe_decode_graph_safe and cudagraph_mode != CUDAGraphMode.NONE
+        # MegaMoe is only selected for batches at or above mega_moe_min_tokens; every
+        # other batch takes the standard MoE path and has no reason to lose the
+        # compiled model. Narrow the eager fallback to batches that actually route
+        # through the op.
+        skip_compiled_megamoe_runtime = (
+            _is_a2_megamoe_enabled(self.ascend_config)
+            and select_moe_comm_method(num_tokens_padded, self.vllm_config) == MoECommType.FUSED_MC2
+            and not (self._a2_megamoe_decode_graph_safe and cudagraph_mode != CUDAGraphMode.NONE)
         )
 
         # Run forward pass
