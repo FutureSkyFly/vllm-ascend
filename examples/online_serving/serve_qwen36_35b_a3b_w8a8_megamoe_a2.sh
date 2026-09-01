@@ -38,6 +38,10 @@ mega_moe_skip_compiled="${MEGAMOE_SKIP_COMPILED:-1}"
 # cache hit rate. Set PREFIX_CACHING=1 to match harnesses that share a prompt
 # prefix across requests and report prefix_cache_hits.
 prefix_caching="${PREFIX_CACHING:-0}"
+# Shared-expert multistream overlap is forced off on the MegaMoe path (the op is
+# documented as incompatible), but it is a real win for the standard MoE path.
+# SHARED_EXPERT_OVERLAP=1 turns it on; it is ignored when MEGAMOE=1.
+shared_expert_overlap="${SHARED_EXPERT_OVERLAP:-0}"
 
 [[ -d "$model_path" ]] || {
     printf 'Model directory does not exist: %s\n' "$model_path" >&2
@@ -73,7 +77,8 @@ if [[ "$megamoe" == "1" ]]; then
         '{"enable_fused_mc2":2,"mega_moe_min_tokens":%d,"mega_moe_skip_compiled":%s,"multistream_overlap_shared_expert":false}' \
         "$mega_moe_min_tokens" "$skip_compiled")"
 else
-    additional_config='{"enable_fused_mc2":0,"multistream_overlap_shared_expert":false}'
+    if [[ "$shared_expert_overlap" == "1" ]]; then overlap=true; else overlap=false; fi
+    additional_config="$(printf '{"enable_fused_mc2":0,"multistream_overlap_shared_expert":%s}' "$overlap")"
 fi
 
 exec vllm serve "$model_path" \
