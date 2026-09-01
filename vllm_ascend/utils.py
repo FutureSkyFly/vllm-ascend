@@ -1069,7 +1069,41 @@ def calculate_cann_megamoe_hccl_buffer_size() -> int:
         max_recv_token_num,
         buffer_size_mb,
     )
+    _warn_if_megamoe_shape_is_unfavourable(ep_world_size, num_experts // ep_world_size)
     return buffer_size_mb
+
+
+# Measured on 8 x Atlas A2 (910B4, CANN 9.1.0) with a standalone 8-rank harness:
+# one mega_moe call costs roughly
+#     110us + 14us * num_experts_per_rank + 182us * num_topk * (tokens_per_rank / 512)
+# The per-expert term is a fixed tax paid before any useful work, so models with
+# many small experts lose to the plain AllGather path. `_select_a2_moe_comm_method`
+# reaches the FUSED_MC2 branch *before* the `num_experts_per_device <= 24 and
+# ep_world_size >= 16` guard that upstream applies to the (equally dispatch-based)
+# MC2 path, so MegaMoe can be selected where that guard would have rejected MC2.
+_MEGA_MOE_FAVOURABLE_MIN_EP_SIZE = 16
+_MEGA_MOE_FAVOURABLE_MAX_EXPERTS_PER_RANK = 24
+
+
+def _warn_if_megamoe_shape_is_unfavourable(ep_world_size: int, num_experts_per_rank: int) -> None:
+    """Warn once when MegaMoe is enabled on a shape measured to be slower than AllGather."""
+    if (
+        ep_world_size >= _MEGA_MOE_FAVOURABLE_MIN_EP_SIZE
+        and num_experts_per_rank <= _MEGA_MOE_FAVOURABLE_MAX_EXPERTS_PER_RANK
+    ):
+        return
+    logger.warning_once(
+        "CANN MegaMoe is enabled at ep_world_size=%d with %d experts per rank. The "
+        "dispatch-based MoE path is only expected to beat AllGather at ep_world_size "
+        ">= %d and <= %d experts per rank (the same thresholds upstream applies to "
+        "MC2 in _select_a2_moe_comm_method). MegaMoe pays a fixed ~14us per expert "
+        "per rank per layer, so this configuration is likely to be SLOWER than "
+        "enable_fused_mc2=0. Measure before keeping it on.",
+        ep_world_size,
+        num_experts_per_rank,
+        _MEGA_MOE_FAVOURABLE_MIN_EP_SIZE,
+        _MEGA_MOE_FAVOURABLE_MAX_EXPERTS_PER_RANK,
+    )
 
 
 def create_hccl_pg_options(group_name: str):

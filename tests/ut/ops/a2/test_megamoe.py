@@ -6,7 +6,7 @@ import torch
 from vllm_ascend import ascend_forward_context as afc
 from vllm_ascend.ascend_forward_context import MoECommType
 from vllm_ascend.ops.fused_moe.moe_comm_method import _append_cann_megamoe_dummy_tokens
-from vllm_ascend.utils import get_cann_megamoe_buffer_params
+from vllm_ascend.utils import _warn_if_megamoe_shape_is_unfavourable, get_cann_megamoe_buffer_params
 
 
 def test_dummy_routes_cover_all_experts_across_ep_ranks():
@@ -154,3 +154,24 @@ def test_a2_megamoe_intermediate_hidden_range(monkeypatch, moe_intermediate_size
         moe_intermediate_size=moe_intermediate_size,
     )
     assert afc.select_moe_comm_method(512, config) == expected
+
+
+@pytest.mark.parametrize(
+    ("ep_world_size", "experts_per_rank", "warns"),
+    [
+        (8, 32, True),  # Qwen3.6-35B-A3B on one A2 node: measured ~3.7x slower than AllGather
+        (8, 16, True),  # EP below the threshold upstream requires for the MC2 family
+        (16, 32, True),  # too many experts per rank: ~14us fixed cost each, per layer
+        (16, 24, False),  # both thresholds satisfied
+        (32, 4, False),
+    ],
+)
+def test_warns_on_unfavourable_megamoe_shape(caplog, ep_world_size, experts_per_rank, warns):
+    from vllm_ascend import utils as ascend_utils
+
+    # warning_once is lru_cached upstream; clear it so each parametrisation is
+    # independent, but do not assume the attribute exists.
+    getattr(ascend_utils.logger.warning_once, "cache_clear", lambda: None)()
+    with caplog.at_level("WARNING"):
+        _warn_if_megamoe_shape_is_unfavourable(ep_world_size, experts_per_rank)
+    assert ("likely to be SLOWER" in caplog.text) is warns
