@@ -34,6 +34,10 @@ mega_moe_min_tokens="${MEGA_MOE_MIN_TOKENS:-512}"
 # exactly the prefill chunks, so this costs the whole model its compiled path on
 # every prefill step. Set MEGAMOE_SKIP_COMPILED=0 to keep the compiled model.
 mega_moe_skip_compiled="${MEGAMOE_SKIP_COMPILED:-1}"
+# Prefix caching is off by default so an A/B measures the MoE path rather than
+# cache hit rate. Set PREFIX_CACHING=1 to match harnesses that share a prompt
+# prefix across requests and report prefix_cache_hits.
+prefix_caching="${PREFIX_CACHING:-0}"
 
 [[ -d "$model_path" ]] || {
     printf 'Model directory does not exist: %s\n' "$model_path" >&2
@@ -54,6 +58,12 @@ export VLLM_ASCEND_BALANCE_SCHEDULING=1
 export VLLM_ASCEND_ENABLE_FLASHCOMM1=1
 # MegaMoe is wired into the V1 model runner only.
 export VLLM_USE_V2_MODEL_RUNNER=0
+
+if [[ "$prefix_caching" == "1" ]]; then
+    prefix_caching_flag="--enable-prefix-caching"
+else
+    prefix_caching_flag="--no-enable-prefix-caching"
+fi
 
 if [[ "$megamoe" == "1" ]]; then
     # enable_fused_mc2=2 is the switch that keeps MegaMoe enabled on main;
@@ -81,6 +91,6 @@ exec vllm serve "$model_path" \
     --gpu-memory-utilization 0.90 \
     --quantization ascend \
     --enable-chunked-prefill \
-    --no-enable-prefix-caching \
+    "$prefix_caching_flag" \
     --additional-config "$additional_config" \
     --compilation-config '{"cudagraph_mode":"FULL_DECODE_ONLY"}'
