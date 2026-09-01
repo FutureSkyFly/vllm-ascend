@@ -399,6 +399,12 @@ class AscendConfig:
     pa_shape_list: list[Any] = dataclasses.field(default_factory=list)
     mega_moe_max_tokens: int = 131072
     mega_moe_min_tokens: int = 512
+    # The A2 MegaMoe integration bypasses the torch.compile'd model for every
+    # batch it routes through the op. On A2 those batches are exactly the
+    # prefill chunks (decode never reaches mega_moe_min_tokens), so the
+    # fallback costs the *whole model* its compiled path on every prefill step.
+    # Set to False to keep the compiled model for MegaMoe batches.
+    mega_moe_skip_compiled: bool = True
     ascend_log_path: str = dataclasses.field(
         default_factory=lambda: os.path.join(os.path.expanduser("~"), "ascend", "log", "vllm_ascend")
     )

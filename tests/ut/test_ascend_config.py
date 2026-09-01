@@ -1042,6 +1042,20 @@ class TestTopLevelSwitchTypeValidation(TestBase):
                 init_ascend_config(vc)
 
     @_clean_up
+    @patch("vllm_ascend.platform.NPUPlatform.check_and_update_config")
+    def test_mega_moe_skip_compiled_is_typed(self, mock_fix):
+        # Defaults to the reference integration's behaviour: MegaMoe batches
+        # bypass the compiled model.
+        vc = VllmConfig()
+        vc.additional_config = {}
+        self.assertTrue(init_ascend_config(vc).mega_moe_skip_compiled)
+
+        for raw, expected in (("false", False), (False, False), ("true", True), (True, True)):
+            vc = VllmConfig()
+            vc.additional_config = {"mega_moe_skip_compiled": raw}
+            self.assertIs(init_ascend_config(vc).mega_moe_skip_compiled, expected)
+
+    @_clean_up
     @patch("vllm_ascend.ascend_config._MEGA_MOE_SUPPORTED", True)
     @patch.object(AscendConfig, "_is_megamoe_supported_by_config", return_value=True)
     @patch("vllm_ascend.platform.NPUPlatform.check_and_update_config")

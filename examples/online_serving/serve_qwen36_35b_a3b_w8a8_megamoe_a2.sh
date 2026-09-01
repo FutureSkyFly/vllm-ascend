@@ -30,6 +30,10 @@ max_num_seqs="${MAX_NUM_SEQS:-32}"
 max_model_len="${MAX_MODEL_LEN:-32768}"
 max_num_batched_tokens="${MAX_NUM_BATCHED_TOKENS:-4096}"
 mega_moe_min_tokens="${MEGA_MOE_MIN_TOKENS:-512}"
+# MegaMoe batches bypass the compiled model by default. On A2 those batches are
+# exactly the prefill chunks, so this costs the whole model its compiled path on
+# every prefill step. Set MEGAMOE_SKIP_COMPILED=0 to keep the compiled model.
+mega_moe_skip_compiled="${MEGAMOE_SKIP_COMPILED:-1}"
 
 [[ -d "$model_path" ]] || {
     printf 'Model directory does not exist: %s\n' "$model_path" >&2
@@ -54,9 +58,10 @@ export VLLM_USE_V2_MODEL_RUNNER=0
 if [[ "$megamoe" == "1" ]]; then
     # enable_fused_mc2=2 is the switch that keeps MegaMoe enabled on main;
     # AscendConfig rewrites it to 1 after recording that MegaMoe is available.
+    if [[ "$mega_moe_skip_compiled" == "1" ]]; then skip_compiled=true; else skip_compiled=false; fi
     additional_config="$(printf \
-        '{"enable_fused_mc2":2,"mega_moe_min_tokens":%d,"multistream_overlap_shared_expert":false}' \
-        "$mega_moe_min_tokens")"
+        '{"enable_fused_mc2":2,"mega_moe_min_tokens":%d,"mega_moe_skip_compiled":%s,"multistream_overlap_shared_expert":false}' \
+        "$mega_moe_min_tokens" "$skip_compiled")"
 else
     additional_config='{"enable_fused_mc2":0,"multistream_overlap_shared_expert":false}'
 fi

@@ -2355,6 +2355,7 @@ class NPUModelRunner(GPUModelRunner):
         # through the op.
         skip_compiled_megamoe_runtime = (
             _is_a2_megamoe_enabled(self.ascend_config)
+            and self.ascend_config.mega_moe_skip_compiled
             and select_moe_comm_method(num_tokens_padded, self.vllm_config) == MoECommType.FUSED_MC2
             and not (self._a2_megamoe_decode_graph_safe and cudagraph_mode != CUDAGraphMode.NONE)
         )
@@ -3677,7 +3678,9 @@ class NPUModelRunner(GPUModelRunner):
                 aclgraph_runtime_mode=cudagraph_runtime_mode,
                 batch_descriptor=batch_desc,
                 model_instance=self.model,
-                skip_compiled=is_profile and _is_a2_megamoe_enabled(self.ascend_config),
+                skip_compiled=is_profile
+                and _is_a2_megamoe_enabled(self.ascend_config)
+                and self.ascend_config.mega_moe_skip_compiled,
                 has_sinks = self._has_sinks,
                 eplb_heat_collection_status=self.eplb_heat_collection_status if self.dynamic_eplb else False,
             ):
