@@ -51,6 +51,31 @@ latency in decode, which runs the untouched recurrent operator; and prompts
 that size against an 8192-token budget admit only one or two sequences per
 prefill step, the operator's weakest regime.
 
+## 1b. Independent reproduction on a second machine
+
+Run on 2026-09-06 on a different 910B4-1, in a container created for the purpose
+from a stock image, against a fresh `ops-transformer` clone, with the kernel
+source taken from this branch. Three arms: the CANN built-in, a package built
+from unmodified source, and a package built from this branch.
+
+Correctness reproduced: `COMPARED 36 tensors / RESULT: PASS all bit-exact`.
+
+| Shape | built-in | base pkg | patch pkg | patch vs built-in | reported |
+|---|---|---|---|---|---|
+| TP8 T=8192 B=1 | 1480.4 | 1502.7 | 1272.8 | -14.0% | -15.9% |
+| TP8 T=8192 B=16 | 2174.4 | 2207.9 | 1030.9 | -52.6% | -54.3% |
+| TP8 T=2560 B=40 | 2521.1 | 2535.7 | 408.7 | -83.8% | -85.2% |
+| TP4 T=8192 B=1 | 1946.9 | 1953.9 | 1709.6 | -12.2% | -13.6% |
+| TP4 T=8192 B=16 | 2768.1 | 2765.1 | 1517.2 | -45.2% | -45.5% |
+| TP2 T=8192 B=1 | 2612.4 | 2632.5 | 2419.2 | -7.4% | -9.8% |
+| TP1 T=8192 B=1 | 4780.3 | 4776.9 | 4363.7 | -8.7% | -8.6% |
+
+All seven land within 0.1-2.4pp of the numbers in section 1, slightly smaller
+because the built-in arm ran last and picked up the machine's warmup. The base
+package sits within -0.1% to +1.5% of the built-in, which is the point of having
+it: the vendor-packaging path contributes nothing, so the difference is the
+kernel.
+
 ## 2. Environment
 
 | | |
@@ -117,22 +142,83 @@ differed in exactly three files -- the header, its `.o`, and its `.json` --
 which is what makes the A/B a single-variable experiment. That by-product is
 worth more than the checksum.
 
+## 3b. Preconditions — check these first
+
+Three things decide whether the patched kernel is reached at all. Each one fails
+silently, and each one yields a clean, correct-looking zero.
+
+**The torch_npu binding.** The operator exists in CANN 9.1.0, but not every
+torch_npu build exposes it to PyTorch:
+
+```bash
+python3 -c "import torch_npu; print(torch_npu.__version__, hasattr(torch_npu,'npu_chunk_gated_delta_rule'))"
+```
+
+`2.10.0.post2` prints `False`; `2.10.0.post4` prints `True`. Verified in one
+container by changing nothing but the torch_npu version. On `False`,
+vllm-ascend's `_probe_fused_chunk()` disables the fused path and everything runs
+through Triton, so the two arms execute identical code.
+
+**Which operator the call site uses.** There are two, and they are not the same
+one:
+
+| gdn.py calls | kernel comes from |
+|---|---|
+| `torch.ops._C_ascend.npu_chunk_gated_delta_rule` | vllm-ascend's own build of `csrc/` (what PR #12607 set up) |
+| `torch_npu.npu_chunk_gated_delta_rule` | CANN, overridable by an opp vendor package |
+
+`grep -n "chunk_gated_delta_rule" vllm_ascend/ops/gdn.py` says which. Building
+this branch changes the first; installing the opp package changes the second.
+Doing one while the runtime uses the other leaves the patch as dead code.
+
+**Whether the vendor package is actually active.** On a CANN install with a
+single custom vendor, `load_priority` has no trailing comma, so the obvious
+`sed 's/^load_priority=gdrcust_transformer,//'` matches nothing and the "base"
+arm silently keeps running the patched kernel. Clear the whole line and echo it
+back:
+
+```bash
+sed -i 's/^load_priority=.*/load_priority=/' $ASCEND_OPP_PATH/vendors/config.ini
+cat $ASCEND_OPP_PATH/vendors/config.ini
+```
+
 ## 4. Build and install the custom opp package
 
 ```bash
 git clone -b 9.1.0 https://gitcode.com/cann/ops-transformer.git
 cd ops-transformer
-# copy the five files from csrc/attention/chunk_gated_delta_rule/op_kernel/arch22/
-# in this branch over attention/chunk_gated_delta_rule/op_kernel/
-# (this repo has no arch22/ subdirectory and no csrc/ prefix)
+K=attention/chunk_gated_delta_rule/op_kernel
+
+# Copy the five files from csrc/attention/chunk_gated_delta_rule/op_kernel/arch22/
+# in this branch into $K. This repo is flat: no csrc/ prefix and no arch22/ level.
+cp /path/to/branch/csrc/attention/chunk_gated_delta_rule/op_kernel/arch22/*.h $K/
+
+# Because the layout is flat, the include of the tiling header must lose its
+# "../". Without this the build fails with
+#   error: '../chunk_gated_delta_rule_tiling_data.h' file not found
+sed -i 's|#include "\.\./chunk_gated_delta_rule_tiling_data.h"|#include "chunk_gated_delta_rule_tiling_data.h"|' \
+    $K/chunk_gated_delta_rule.h $K/chunk_gated_delta_rule_stage1.h \
+    $K/chunk_gated_delta_rule_stage2.h $K/chunk_gated_delta_rule_stage3.h
 
 bash build.sh --pkg --soc=ascend910b --vendor_name=gdrcust --ops=chunk_gated_delta_rule -j64
+echo "build exit=$?"     # check it: a failed build leaves the previous .run in place
 ./cann-ops-transformer-gdrcust_linux-aarch64.run --quiet
 export LD_LIBRARY_PATH=$ASCEND_OPP_PATH/vendors/gdrcust_transformer/op_api/lib/:$LD_LIBRARY_PATH
 ```
 
 The build takes about 2.5 minutes. Installing puts `gdrcust_transformer` first
 in `$ASCEND_OPP_PATH/vendors/config.ini`'s `load_priority`.
+
+Check `build.sh`'s exit code rather than looking for a `.run` file. A failed
+build leaves an earlier one on disk, and picking that up produces two packages
+that are byte-identical -- which reads as "the change had no effect" rather than
+"the change was never compiled".
+
+The strongest baseline is a second package built from the *unmodified* source
+rather than the CANN built-in: both arms then travel the same vendor path and
+the only variable is the kernel. Measured here, that base package sits within
+-0.1% to +1.5% of the built-in across all seven shapes, so the packaging path
+itself contributes nothing.
 
 Check that no other vendor in that list also provides this operator, or your
 "base" arm is not the CANN built-in:
