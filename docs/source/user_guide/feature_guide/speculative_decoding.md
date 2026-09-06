@@ -273,6 +273,9 @@ The following code configures vLLM Ascend to use speculative decoding where prop
 
 ## Speculating using UNO
 
+For the pinned branch and runtime, server commands, correctness checks, and
+offline/online benchmarks, see the [UNO FULL_DECODE_ONLY reproduction guide (Chinese)](uno_reproduction.md).
+
 UNO ("one model") has no draft model. Each decode cycle runs the target
 transformer twice: a **draft** forward whose noise rows are adapted by a trained
 gated LoRA, and the ordinary **verify** forward on base weights. Because the
