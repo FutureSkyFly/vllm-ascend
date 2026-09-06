@@ -369,6 +369,10 @@ Recommended tuning order:
 | Qwen3.6 MTP speculative decoding | `--speculative-config '{"method": "qwen3_5_mtp", "num_speculative_tokens": 3, "enforce_eager": true}'` | Can improve decode throughput when stable and accepted tokens are high. | Validate stability, TTFT, TPOT, and throughput for your workload. |
 | CANN MegaMoe (Atlas A2) | `--additional-config '{"enable_fused_mc2": 2, "mega_moe_min_tokens": 512}'` | Fuses MoE Dispatch + Linear1 + SwiGLU + Linear2 + Combine into one op, overlapping expert communication with compute. | Requires `cann_ops_transformer`, W8A8/W4A8 weights, the V1 model runner (`VLLM_USE_V2_MODEL_RUNNER=0`), `--data-parallel-size 1`, and an EP size in {2, 4, 8, 16, 32}. Only batches with at least `mega_moe_min_tokens` tokens take the fused path, so it mainly helps prefill; smaller batches fall back to the standard MoE path. Not compatible with `multistream_overlap_shared_expert` or dynamic EPLB. See `examples/online_serving/serve_qwen36_35b_a3b_w8a8_megamoe_a2.sh`. |
 
+### 9.4 A2 MegaMoe Reproduction and Acceptance
+
+See [A2 MegaMoe reproduction and tests](../../developer_guide/performance_and_debug/megamoe_a2_reproduction.md) for the validated source and runtime versions, operator correctness and ABBA measurements, and controlled model enabled/disabled acceptance. The guide specifies input data, warmups, repetitions, success criteria, and the scope of the reported gains.
+
 ## 10 FAQ
 
 For common environment, installation, and general parameter issues, refer to [Public FAQs](../../faqs.md). This section only covers model-specific issues for Qwen3.6-35B-A3B.
