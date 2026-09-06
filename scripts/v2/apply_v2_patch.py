@@ -60,6 +60,81 @@ def sub(s, old, new, tag):
     return s.replace(old, new)
 
 
+# --------------------------------------------------------------- lora_ops ---
+# Hoist the AscendC route above the custom-op boundary (see the generated
+# file's own comment for the measured numbers).
+O = rd("lora_ops.py")
+
+O = sub(O, '''import torch
+
+from vllm_ascend.lora import lora_ops_triton  # noqa: F401  (registers custom ops)''', '''import os
+
+import torch
+
+from vllm_ascend.lora import lora_ops_triton  # noqa: F401  (registers custom ops)
+
+# --- route selection ---------------------------------------------------------
+# The triton kernels only beat the AscendC ops at the smallest decode batches.
+# Measured per-layer device time on 910B4 (v2 exact config / AscendC):
+#     B          1      2      3      4      8     16
+#   shrink    0.53x  0.62x  1.07x  1.07x  1.07x  1.06x
+#   expand    0.94x  1.10x  1.45x  1.38x  1.90x  2.58x
+# Past the crossover, routing through torch.ops.vllm_ascend_triton.* -- a
+# torch.library.custom_op whose implementation is a PYTHON function -- costs a
+# measured +43.8 us (shrink) / +44.7 us (expand) per call versus calling
+# torch.ops._C_ascend.* directly (71.2 vs 27.4 us; 2.60x stock).  For a
+# 48-layer model that is ~+23.4 ms of host time per forward, which lands
+# straight on TTFT in eager prefill and gives back far more than the kernels
+# ever won.  So decide the route HERE, above the custom-op boundary: past the
+# threshold this file issues exactly the call stock lora_ops.py issues.
+#
+# The branch tests inputs.shape[0] -- a shape, not a data value.  Under aclgraph
+# every capture size gets its own graph and B is fixed within a capture, so the
+# route is baked correctly per graph; batches beyond max_cudagraph_capture_size
+# run eager and re-evaluate it per call.
+#
+# TRITON_LORA_DISABLE=1 forces the stock call unconditionally -- use it where
+# the AscendC ops always win (e.g. 910C at high concurrency), and this module
+# then costs nothing versus stock.
+_SHRINK_MAX_B = int(os.environ.get("TRITON_LORA_SHRINK_MAX_B", "2"))
+_EXPAND_MAX_B = int(os.environ.get("TRITON_LORA_EXPAND_MAX_B", "1"))
+if os.environ.get("TRITON_LORA_DISABLE", "0") != "0":
+    _SHRINK_MAX_B = _EXPAND_MAX_B = -1''', 'LO-header')
+O = sub(O, '''def bgmv_shrink(inputs, lora_a_weights, output_tensor, lora_indices_tensor, scaling=1.0):
+    torch.ops.vllm_ascend_triton.bgmv_shrink(''', '''def bgmv_shrink(inputs, lora_a_weights, output_tensor, lora_indices_tensor, scaling=1.0):
+    if inputs.shape[0] > _SHRINK_MAX_B:
+        torch.ops._C_ascend.bgmv_shrink(
+            inputs, lora_a_weights, lora_indices_tensor, output_tensor, scaling)
+        return output_tensor
+    torch.ops.vllm_ascend_triton.bgmv_shrink(''', 'LO-bgmv_shrink')
+O = sub(O, '''                      slice_offset, slice_size, add_inputs=True):
+    torch.ops.vllm_ascend_triton.bgmv_expand_slice(''', '''                      slice_offset, slice_size, add_inputs=True):
+    if inputs.shape[0] > _EXPAND_MAX_B:
+        torch.ops._C_ascend.bgmv_expand(
+            inputs, lora_b_weights, lora_indices_tensor, output_tensor,
+            slice_offset, slice_size)
+        return output_tensor
+    torch.ops.vllm_ascend_triton.bgmv_expand_slice(''', 'LO-bgmv_expand_slice')
+O = sub(O, '''                lora_indices_tensor, batches, max_seq_length, token_nums, scaling):
+    torch.ops.vllm_ascend_triton.sgmv_shrink(''', '''                lora_indices_tensor, batches, max_seq_length, token_nums, scaling):
+    if inputs.shape[0] > _SHRINK_MAX_B:
+        torch.ops._C_ascend.sgmv_shrink(
+            inputs, lora_a_weights, lora_indices_tensor, seq_len_tensor,
+            output_tensor, scaling)
+        return output_tensor
+    torch.ops.vllm_ascend_triton.sgmv_shrink(''', 'LO-sgmv_shrink')
+O = sub(O, '''                      slice_offset, slice_size, add_inputs=False):
+    torch.ops.vllm_ascend_triton.sgmv_expand_slice(''', '''                      slice_offset, slice_size, add_inputs=False):
+    if inputs.shape[0] > _EXPAND_MAX_B:
+        torch.ops._C_ascend.sgmv_expand(
+            inputs, lora_b_weights, lora_indices_tensor, seq_len_tensor,
+            output_tensor, slice_offset, slice_size)
+        return output_tensor
+    torch.ops.vllm_ascend_triton.sgmv_expand_slice(''', 'LO-sgmv_expand_slice')
+
+wr("lora_ops.py", O)
+print("lora_ops: AscendC route hoisted above the custom-op boundary")
+
 # ---------------------------------------------------------------- kernels ---
 K = rd("lora_ops_triton_kernels.py")
 
@@ -738,7 +813,8 @@ S = sub(S, '''        ret = _cpp_launch(case, grid[0], ptrs_d, floats)''',
         "P6e verify launch scalars")
 
 wr("lora_ops_triton.py", S)
-for extra in ("lora_ops.py", "lora_cpp_launcher.cpp",
+# NOTE: lora_ops.py is NOT in this verbatim-copy list -- it is rewritten above.
+for extra in ("lora_cpp_launcher.cpp",
               "lora_cpp_launcher.cpython-312-aarch64-linux-gnu.so",
               "lora_native_ops.cpp"):
     p = os.path.join(SRC, extra)
