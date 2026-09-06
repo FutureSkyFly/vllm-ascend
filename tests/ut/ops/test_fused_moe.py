@@ -1295,9 +1295,11 @@ def test_set_lora_context_updates_experts(has_shared_experts):
 
 
 @pytest.mark.parametrize("has_shared_experts", [False, True])
-def test_forward_impl_returns_current_runner_contract(monkeypatch, has_shared_experts):
+@pytest.mark.parametrize("defer_tp_reduction", [False, True])
+def test_forward_impl_returns_current_runner_contract(monkeypatch, has_shared_experts, defer_tp_reduction):
     runner = AscendMoERunner.__new__(AscendMoERunner)
     nn.Module.__init__(runner)
+    runner._a2_defer_tp_reduction = defer_tp_reduction
     hidden_states = torch.randn(2, 4)
     router_logits = torch.randn(2, 3)
     input_ids = torch.tensor([11, 22])
@@ -1337,6 +1339,7 @@ def test_forward_impl_returns_current_runner_contract(monkeypatch, has_shared_ex
             hidden_states=hidden_states,
             router_logits=router_logits,
             input_ids=input_ids,
+            defer_tp_reduction=defer_tp_reduction,
         )
         assert result[0] is shared_out
         assert result[1] is routed_out
@@ -1354,6 +1357,7 @@ def test_forward_impl_returns_current_runner_contract(monkeypatch, has_shared_ex
 def test_forward_impl_keeps_full_width_input_for_shared_experts(monkeypatch):
     runner = AscendMoERunner.__new__(AscendMoERunner)
     nn.Module.__init__(runner)
+    runner._a2_defer_tp_reduction = False
     routed_hidden_states = torch.randn(2, 4)
     shared_hidden_states = torch.randn(2, 8)
     router_logits = torch.randn(2, 3)
@@ -1399,6 +1403,7 @@ def test_forward_impl_keeps_full_width_input_for_shared_experts(monkeypatch):
         hidden_states=routed_hidden_states,
         router_logits=router_logits,
         input_ids=None,
+        defer_tp_reduction=False,
     )
     runner.ascend_shared_experts.prepare_input_before_routed_experts.assert_called_once_with(shared_hidden_states)
     current_stream.wait_event.assert_called_once_with(shared_input_all_gather_done)

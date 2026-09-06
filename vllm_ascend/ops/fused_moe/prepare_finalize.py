@@ -226,6 +226,27 @@ class PrepareAndFinalizeWithAll2All(PrepareAndFinalize):
 
         return hidden_states
 
+    def finalize_tp_partial(
+        self,
+        hidden_states: torch.Tensor,
+        padded_hidden_states_shape: torch.Size,
+    ) -> torch.Tensor:
+        """Embed this rank's token shard for a later shared+routed TP sum.
+
+        Each output token has exactly one routed contributor. This replaces
+        the routed all-gather when the caller will all-reduce shared+routed
+        together, and keeps AllGather decode on its existing reduction path.
+        """
+        assert not self.replace_allreduce
+        assert padded_hidden_states_shape is not None
+        padded_tokens = padded_hidden_states_shape[0]
+        rows, extra = divmod(padded_tokens, self.tp_size)
+        local_rows = rows + int(self.tp_rank < extra)
+        start = self.tp_rank * rows + min(self.tp_rank, extra)
+        assert hidden_states.shape[0] == local_rows
+        partial = nn.functional.pad(hidden_states, (0, 0, start, padded_tokens - start - local_rows))
+        return partial[: self.num_tokens]
+
 
 class PrepareAndFinalizeWithMC2(PrepareAndFinalizeWithAll2All):
     """

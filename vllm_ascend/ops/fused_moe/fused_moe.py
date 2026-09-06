@@ -25,7 +25,8 @@ from vllm.distributed import (
 from vllm.model_executor.layers.fused_moe import FusedMoEConfig, FusedMoERouter
 from vllm.model_executor.layers.fused_moe.layer import MoERunner
 
-from vllm_ascend.ascend_forward_context import _EXTRA_CTX, MoECommType
+from vllm_ascend.ascend_config import get_ascend_config
+from vllm_ascend.ascend_forward_context import _EXTRA_CTX, MoECommType, _is_a2_megamoe_enabled
 from vllm_ascend.distributed.parallel_state import get_mc2_group
 from vllm_ascend.ops.fused_moe.moe_comm_method import get_moe_comm_method, setup_moe_comm_method
 from vllm_ascend.ops.fused_moe.routed_experts import AscendRoutedExperts
@@ -86,6 +87,18 @@ class AscendMoERunner(MoERunner):  # type: ignore[no-redef]
                 self._quant_method,
             )
 
+        # Keep one TP-partial output contract across MegaMoe prefill and
+        # AllGather decode, so the compiled graph always reduces their sum.
+        self._a2_defer_tp_reduction = (
+            _is_a2_megamoe_enabled(get_ascend_config())
+            and self.ascend_shared_experts is not None
+            and not self.moe_config.is_sequence_parallel
+            and self.moe_config.dp_size == 1
+            and self.moe_config.pcp_size == 1
+            and routed_output_transform is None
+            and self._get_shared_expert_parallel_mode() is SharedExpertParallelMode.TENSOR_PARALLEL
+        )
+
         setup_moe_comm_method(self.moe_config)
         alltoall_comm = get_moe_comm_method(MoECommType.ALLTOALL)
         if alltoall_comm is not None:
@@ -116,6 +129,8 @@ class AscendMoERunner(MoERunner):  # type: ignore[no-redef]
 
     @property
     def _fused_output_is_reduced(self) -> bool:
+        if getattr(self, "_a2_defer_tp_reduction", False):
+            return False
         # For MC2/ALLTOALL/FUSED_MC2 comm types, finalize() already includes
         # TP all-reduce for the routed output, and AscendSharedExperts.forward
         # handles it for the shared output. Signal this to the upstream
@@ -255,6 +270,7 @@ class AscendMoERunner(MoERunner):  # type: ignore[no-redef]
                     hidden_states=hidden_states,
                     router_logits=router_logits,
                     input_ids=input_ids,
+                    defer_tp_reduction=self._a2_defer_tp_reduction,
                 )
                 fused_moe_events.before_routed_experts = before_routed_experts
                 fused_moe_events.after_routed_experts = after_routed_experts
@@ -322,6 +338,7 @@ class AscendMoERunner(MoERunner):  # type: ignore[no-redef]
                     hidden_states=hidden_states,
                     router_logits=router_logits,
                     input_ids=input_ids,
+                    defer_tp_reduction=self._a2_defer_tp_reduction,
                 )
                 fused_moe_events.before_routed_experts = before_routed_experts
                 fused_moe_events.after_routed_experts = after_routed_experts

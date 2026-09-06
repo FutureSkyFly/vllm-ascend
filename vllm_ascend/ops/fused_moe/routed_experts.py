@@ -37,6 +37,7 @@ from vllm_ascend.lora.fused_moe import sync_lora_context
 from vllm_ascend.ops.fused_moe.dataclass.fused_experts import build_fused_experts_input
 from vllm_ascend.ops.fused_moe.moe_comm_method import AllGatherCommImpl, FusedExpertsResult
 from vllm_ascend.ops.fused_moe.moe_utils import get_moe_num_logical_experts
+from vllm_ascend.ops.fused_moe.prepare_finalize import PrepareAndFinalizeWithAll2All
 from vllm_ascend.ops.fused_moe.shared_experts import FusedMoEEvents
 from vllm_ascend.quantization.quant_type import QuantType
 from vllm_ascend.utils import ACL_FORMAT_FRACTAL_NZ, maybe_trans_nz
@@ -497,6 +498,7 @@ class AscendRoutedExperts(RoutedExperts):  # type: ignore[no-redef]
         hidden_states: torch.Tensor,
         router_logits: torch.Tensor,
         input_ids: torch.Tensor | None = None,
+        defer_tp_reduction: bool = False,
     ):
         forward_context = get_forward_context()
         # When static kernels are enabled, the forward pass runs twice
@@ -569,11 +571,19 @@ class AscendRoutedExperts(RoutedExperts):  # type: ignore[no-redef]
             else:
                 self.moe_load.add_(local_load)
 
-        routed_out = _EXTRA_CTX.moe_comm_method.finalize(
-            hidden_states=fused_experts_results.routed_out,
-            reduce_results=isinstance(_EXTRA_CTX.moe_comm_method, AllGatherCommImpl),
-            padded_hidden_states_shape=padded_hidden_states_shape,
-        )
+        comm_method = _EXTRA_CTX.moe_comm_method
+        if defer_tp_reduction and not isinstance(comm_method, AllGatherCommImpl):
+            prepare_finalize = comm_method.prepare_finalize
+            assert isinstance(prepare_finalize, PrepareAndFinalizeWithAll2All)
+            routed_out = prepare_finalize.finalize_tp_partial(
+                fused_experts_results.routed_out, padded_hidden_states_shape
+            )
+        else:
+            routed_out = comm_method.finalize(
+                hidden_states=fused_experts_results.routed_out,
+                reduce_results=isinstance(comm_method, AllGatherCommImpl),
+                padded_hidden_states_shape=padded_hidden_states_shape,
+            )
 
         # Clear per-forward LoRA state from long-lived singletons.
         if lora_context is not None:
