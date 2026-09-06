@@ -195,6 +195,24 @@ Compare pass1 against pass1 and pass2 against pass2: there is a consistent
 ~3.5% warmup improvement from the first bench to the second within one server
 instance, present in both arms.
 
+## 8b. Production-shaped scenario
+
+`bench_scenario_prod.sh` carries the deployment configuration verbatim -- the
+server flags and both bench workloads (prefix 1229 + input 2867, and prefix 4301
++ input 1843, 256 output tokens, 160 requests, concurrency 32) -- wrapped in the
+same four-arm ABBA.
+
+```bash
+MODEL=/path/to/model CARDS=4,5,6,7 bash bench_scenario_prod.sh | tee prod.log
+```
+
+Its header lists the four deviations from the deployment script, of which one
+matters for interpreting the result: the runs here used the W8A8 checkpoint,
+while the deployment uses the unquantized bf16 one. The operator is bf16 either
+way and its absolute time is unchanged; W8A8 shrinks everything around it, which
+raises the operator's share of prefill. The ~1% end-to-end gain this scenario
+shows is therefore an upper bound for a bf16 deployment.
+
 ## 9. Things that produced wrong numbers here
 
 **One shape per process.** Timing several shapes in one process inflated a
