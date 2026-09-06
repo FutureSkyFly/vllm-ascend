@@ -1,4 +1,13 @@
-# 这两个补丁不需要 —— 留作记录
+# 补丁目录
+
+| 文件 | 用途 |
+|---|---|
+| `pp_support.py` | **PP 必需**。七处改动，不打 PP 根本起不来（`SupportsPP` 是 Protocol，非首 rank 会在 `_dummy_run` 里炸）。注意它只解决「起不来」；起来之后**还必须加 `--kv-cache-memory`**，否则 prompt 一过 ~2758 token 会被调度器静默拒绝。见 `docs/05-pipeline-parallel.md`。 |
+| `pp_batch_depth1.py` | 判别实验用，**已证伪**（强制 batch_queue 深度 1 后照样停住）。不要用。 |
+| `sched_debug.py` / `alloc_debug.py` | 诊断探针，`VLLM_SCHED_DEBUG=1` 才输出，幂等可 revert。 |
+| 下文的补丁 A / 补丁 B | **不需要**，留作记录。 |
+
+## 补丁 A / 补丁 B —— 不需要，留作记录
 
 排查图捕获失败时，我按驱动报错的字面意思
 
@@ -57,3 +66,31 @@ max-locked-memory rlimit。
 但：CachingHostAllocator 会把释放推迟到拷贝完成，实际是否会出问题**没有证据**，
 而且实测未打补丁一切正常（正确性、APC 命中、MTP 接受率都对）。
 **在拿到反例之前不要上这两个补丁。**
+
+## sched_debug.py / alloc_debug.py —— 调度器与 KV 分配器的诊断探针
+
+两个都是**幂等、可 revert、受环境变量 `VLLM_SCHED_DEBUG=1` 控制**的临时探针，
+默认不输出、不影响性能。用来回答「请求为什么排不进调度」这一类问题。
+
+```bash
+python3 sched_debug.py --file /vllm-workspace/vllm/vllm/v1/core/sched/scheduler.py
+python3 alloc_debug.py --file /vllm-workspace/vllm/vllm/v1/core/kv_cache_manager.py
+# 起服务时 export VLLM_SCHED_DEBUG=1
+# 用完务必回滚：
+python3 sched_debug.py --file ... --revert
+python3 alloc_debug.py --file ... --revert
+```
+
+打出来的行：
+
+```
+SCHED_DEBUG WAIT   req=... num_tokens=.. computed=.. num_new=.. budget=.. block_size=..
+SCHED_DEBUG BREAK  mamba_align_zero | allocate_slots_none
+SCHED_DEBUG RUN    skip zero ...
+SCHED_DEBUG OUT    total=.. waiting=.. running=..
+ALLOC_DEBUG fullISL num_tokens=.. need=.. free=.. -> ok|REJECT
+ALLOC_DEBUG main    need_slot=.. need=.. avail=.. -> ok|REJECT
+```
+
+**这两个探针就是本次定位到 GLM-5 indexer 状态缓存块大小错账的工具**，
+过程见 `docs/05-pipeline-parallel.md`。它们不是交付内容，仅作排查用。

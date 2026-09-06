@@ -31,6 +31,12 @@ nohup setsid vllm serve "$MODEL" \
   --max-num-batched-tokens 4096 \
   --max-num-seqs 8 \
   --gpu-memory-utilization 0.9 \
+  `# max-model-len 16384 时不会碰到下面这个天花板，但把它调大就要留意：`\
+  `# TP8×PP1 默认块池 1178 块，实测 40,012 token 的 prompt 正常，`\
+  `# 100,002 token 会被调度器静默拒绝（need=1186 > free=1178），零输出零报错。`\
+  `# 所以 max-model-len 抬到 ~40k 以上时，同样要显式加 --kv-cache-memory`\
+  `# （值取启动日志 worker.py:758 的建议）。该路径未实测 [U]。`\
+  `# 根因（indexer 状态缓存块大小错账）见 docs/05-pipeline-parallel.md。`\
   --enable-prefix-caching \
   --prefix-caching-hash-algo xxhash \
   --speculative-config '{"method":"mtp","num_speculative_tokens":1}' \

@@ -72,17 +72,24 @@ docs/01-quantization.md   量化过程、三份产物、0829 vs 0830 分支分�
 docs/02-serving.md        三特性接线、逐级验证记录、每个失败的根因
 docs/03-findings.md       代码级结论（每条标注证据强度 F/I/U）
 docs/04-open.md           未解问题与已知限制（含多模态）
+docs/05-pipeline-parallel.md  PP（TP4×PP2）适配：必需的补丁、根因、以及**必须加的 --kv-cache-memory**
 
 quantize/run_quant.sh                          三份产物的量化命令
 quantize/glm_5_next_w8a8.shared_experts_fp.yaml  0829 + 共享专家不量化（= b0829se 的配方）
 quantize/inspect_artifact.py                   产物核对：张量数 / ViT / 量化覆盖面
 
 serve/docker-run.sh                容器启动（含 --ulimit memlock=-1 与 xxhash）
-serve/serve.sh                     验证过的启动命令
+serve/serve.sh                     验证过的启动命令（TP8×PP1）
+serve/serve-pp.sh                  TP4×PP2 启动；**必须带 --kv-cache-memory**，否则长 prompt 会被静默拒绝
+patches/pp_support.py              PP 必需的七处改动（见 patches/README.md）
 serve/chat_template_mm.jinja       多模态对话模板（可选，默认不用，见 docs/04-open.md）
 serve/make_mm_chat_template.py     从官方模板派生上面那份
 
 test/make_tiny_model.py            造一个结构完整的迷你 GLM-5.3-Flash（不占 8 卡就能验通路）
+test/pp_verify.py                  PP 验收：正确性 + 并发 + 长度 + 长上下文，一次跑完
+test/pp_length_ladder.py           按 prompt 长度扫描，定位「多长会被静默拒绝」
+test/pp_axis_matrix.py             三轴分离，判定停住的自变量是哪一根
+test/pp_forward_equivalence.sh     PP2 vs PP1 前向逐位对照（prompt_logprobs）
 test/smoke_test.py                 正确性 + prefix cache 命中 + MTP 接受率
 test/prefix_cache_test.py          单独测 prefix cache
 test/mm_test.py                    图像请求（当前会失败，见 docs/04-open.md）
