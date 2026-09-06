@@ -73,6 +73,7 @@ docs/02-serving.md        三特性接线、逐级验证记录、每个失败的
 docs/03-findings.md       代码级结论（每条标注证据强度 F/I/U）
 docs/04-open.md           未解问题与已知限制（含多模态）
 docs/05-pipeline-parallel.md  PP（TP4×PP2）适配：必需的补丁、根因、以及**必须加的 --kv-cache-memory**
+docs/06-reproduce.md      复现手册：环境 commit / 起服务 / 验收 / 故障指纹速查
 
 quantize/run_quant.sh                          三份产物的量化命令
 quantize/glm_5_next_w8a8.shared_experts_fp.yaml  0829 + 共享专家不量化（= b0829se 的配方）
