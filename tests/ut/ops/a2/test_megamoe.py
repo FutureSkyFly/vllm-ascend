@@ -40,6 +40,60 @@ def test_receive_bound_uses_documented_worst_case():
     assert get_cann_megamoe_buffer_params(480, 32, 256, 8) == (512, 8, 32, 131072)
 
 
+@pytest.mark.parametrize("ep_rank_id", [0, 1, 7])
+@pytest.mark.parametrize("dtype", [torch.float16, torch.bfloat16])
+def test_dummy_cache_reuses_constants_across_batch_sizes(monkeypatch, ep_rank_id, dtype):
+    cache = {}
+
+    def inputs(rows):
+        return (
+            torch.zeros((rows, 16), dtype=dtype),
+            torch.zeros((rows, 8), dtype=torch.int32),
+            torch.full((rows, 8), 0.125),
+            torch.zeros(rows, dtype=torch.int8),
+        )
+
+    first_inputs, next_inputs = inputs(2), inputs(5)
+    first = _append_cann_megamoe_dummy_tokens(*first_inputs, 256, ep_rank_id, 8, dummy_cache=cache)
+    assert len(cache) == 1
+    expected_routes = torch.arange(ep_rank_id * 32, (ep_rank_id + 1) * 32).reshape(4, 8)
+    assert torch.equal(first[1][-4:], expected_routes)
+    expected = tuple(x.clone() for x in first[:4])
+    for tensor in first[:4]:
+        tensor.zero_()
+
+    def unexpected_factory(*args, **kwargs):
+        raise AssertionError("Warm dummy padding must reuse constant tensors")
+
+    for name in ("arange", "ones", "full"):
+        monkeypatch.setattr(torch, name, unexpected_factory)
+    second = _append_cann_megamoe_dummy_tokens(*next_inputs, 256, ep_rank_id, 8, dummy_cache=cache)
+    assert len(cache) == 1 and second[4] == 5
+    for actual, original, padded in zip(second[:4], next_inputs, expected):
+        assert torch.equal(actual[:5], original)
+        assert torch.equal(actual[-4:], padded[-4:])
+
+
+def test_dummy_cache_separates_rank_dtype_and_mask_contracts():
+    cache = {}
+    for rank, dtype, mask_dtype in (
+        (0, torch.bfloat16, torch.int8),
+        (1, torch.bfloat16, torch.int8),
+        (1, torch.float16, torch.bool),
+    ):
+        x = torch.zeros((3, 16), dtype=dtype)
+        ids = torch.zeros((3, 8), dtype=torch.int64)
+        weights = torch.full((3, 8), 0.125)
+        mask = torch.tensor([1, 0, 1], dtype=mask_dtype)
+        result = _append_cann_megamoe_dummy_tokens(x, ids, weights, mask, 256, rank, 8, dummy_cache=cache)
+        assert result[0].dtype == dtype and result[3].dtype == mask_dtype
+        assert result[3].tolist() == [1, 0, 1, 1, 1, 1, 1]
+        assert result[1][-4:].flatten().tolist() == list(range(rank * 32, (rank + 1) * 32))
+    assert len(cache) == 3
+    result = _append_cann_megamoe_dummy_tokens(x, ids, weights, None, 256, rank, 8, dummy_cache=cache)
+    assert result[3].dtype == torch.int8 and result[3].tolist() == [1] * 7
+
+
 def _make_a2_config(
     *,
     quantize: str,
@@ -166,12 +220,15 @@ def test_a2_megamoe_intermediate_hidden_range(monkeypatch, moe_intermediate_size
         (32, 4, False),
     ],
 )
-def test_warns_on_unfavourable_megamoe_shape(caplog, ep_world_size, experts_per_rank, warns):
+def test_warns_on_unfavourable_megamoe_shape(caplog, monkeypatch, ep_world_size, experts_per_rank, warns):
     from vllm_ascend import utils as ascend_utils
 
     # warning_once is lru_cached upstream; clear it so each parametrisation is
     # independent, but do not assume the attribute exists.
     getattr(ascend_utils.logger.warning_once, "cache_clear", lambda: None)()
+    # vllm's parent logger stops propagation before pytest's root handler.
+    monkeypatch.setattr(ascend_utils.logger, "handlers", [*ascend_utils.logger.handlers, caplog.handler])
+    assert caplog.handler in ascend_utils.logger.handlers
     with caplog.at_level("WARNING"):
         _warn_if_megamoe_shape_is_unfavourable(ep_world_size, experts_per_rank)
     assert ("likely to be SLOWER" in caplog.text) is warns

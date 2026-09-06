@@ -59,6 +59,7 @@ def _append_cann_megamoe_dummy_tokens(
     num_experts: int,
     ep_rank_id: int,
     ep_world_size: int,
+    dummy_cache: dict | None = None,
 ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, int]:
     """Append equal-size local sentinels that cover all experts globally."""
     if ep_world_size < 1 or not 0 <= ep_rank_id < ep_world_size:
@@ -69,24 +70,49 @@ def _append_cann_megamoe_dummy_tokens(
     num_topk = int(topk_ids.shape[-1])
     global_dummy_capacity = get_cann_megamoe_dummy_token_capacity(num_experts, num_topk)
     local_dummy_capacity = math.ceil(global_dummy_capacity / ep_world_size)
-    global_dummy_rows = ep_rank_id * local_dummy_capacity + torch.arange(
-        local_dummy_capacity, dtype=topk_ids.dtype, device=topk_ids.device
+    mask_dtype = torch.int8 if x_active_mask is None else x_active_mask.dtype
+    mask_device = hidden_states.device if x_active_mask is None else x_active_mask.device
+    key = (
+        num_experts,
+        num_topk,
+        ep_rank_id,
+        ep_world_size,
+        hidden_states.shape[-1],
+        hidden_states.dtype,
+        hidden_states.device,
+        topk_ids.dtype,
+        topk_ids.device,
+        topk_weights.dtype,
+        topk_weights.device,
+        mask_dtype,
+        mask_device,
     )
-    dummy_topk_ids = global_dummy_rows[:, None] * num_topk + torch.arange(
-        num_topk, dtype=topk_ids.dtype, device=topk_ids.device
-    )
-    dummy_topk_ids = dummy_topk_ids.remainder(num_experts)
-    dummy_hidden_states = torch.ones(
-        (local_dummy_capacity, hidden_states.shape[-1]),
-        dtype=hidden_states.dtype,
-        device=hidden_states.device,
-    )
-    dummy_topk_weights = torch.full(
-        (local_dummy_capacity, num_topk),
-        1.0 / num_topk,
-        dtype=topk_weights.dtype,
-        device=topk_weights.device,
-    )
+    cached = None if dummy_cache is None else dummy_cache.get(key)
+    if cached is None:
+        global_dummy_rows = ep_rank_id * local_dummy_capacity + torch.arange(
+            local_dummy_capacity, dtype=topk_ids.dtype, device=topk_ids.device
+        )
+        dummy_topk_ids = global_dummy_rows[:, None] * num_topk + torch.arange(
+            num_topk, dtype=topk_ids.dtype, device=topk_ids.device
+        )
+        dummy_topk_ids = dummy_topk_ids.remainder(num_experts)
+        dummy_hidden_states = torch.ones(
+            (local_dummy_capacity, hidden_states.shape[-1]),
+            dtype=hidden_states.dtype,
+            device=hidden_states.device,
+        )
+        dummy_topk_weights = torch.full(
+            (local_dummy_capacity, num_topk),
+            1.0 / num_topk,
+            dtype=topk_weights.dtype,
+            device=topk_weights.device,
+        )
+        dummy_mask = torch.ones(local_dummy_capacity, dtype=mask_dtype, device=mask_device)
+        cached = (dummy_hidden_states, dummy_topk_ids, dummy_topk_weights, dummy_mask)
+        if dummy_cache is not None:
+            dummy_cache[key] = cached
+    # Concatenation copies these constants; callers may mutate the returned inputs.
+    dummy_hidden_states, dummy_topk_ids, dummy_topk_weights, dummy_mask = cached
 
     original_num_tokens = int(hidden_states.shape[0])
     hidden_states = torch.cat((hidden_states, dummy_hidden_states), dim=0)
@@ -94,7 +120,6 @@ def _append_cann_megamoe_dummy_tokens(
     topk_weights = torch.cat((topk_weights, dummy_topk_weights), dim=0)
     if x_active_mask is None:
         x_active_mask = torch.ones(original_num_tokens, dtype=torch.int8, device=hidden_states.device)
-    dummy_mask = torch.ones(local_dummy_capacity, dtype=x_active_mask.dtype, device=x_active_mask.device)
     x_active_mask = torch.cat((x_active_mask, dummy_mask), dim=0)
     return hidden_states, topk_ids, topk_weights, x_active_mask, original_num_tokens
 
@@ -321,6 +346,7 @@ class FusedMC2CommImpl(MoECommMethod):
         else:
             self.expert_token_nums = None
 
+        self._cann_megamoe_dummy_cache: dict = {}
         self.swiglu_limit = 0.0 if moe_config.swiglu_limit is None else moe_config.swiglu_limit
         self.swiglu_alpha = 1.0 if moe_config.swiglu_alpha is None else moe_config.swiglu_alpha
         self.swiglu_beta = 0.0 if moe_config.swiglu_beta is None else moe_config.swiglu_beta
@@ -480,6 +506,7 @@ class FusedMC2CommImpl(MoECommMethod):
                 int(self.moe_config.num_experts),
                 int(self.token_dispatcher.ep_rank_id),
                 int(self.token_dispatcher.ep_world_size),
+                dummy_cache=self._cann_megamoe_dummy_cache,
             )
 
         out, expert_tokens = self.mega_moe(
