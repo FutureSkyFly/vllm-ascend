@@ -1,6 +1,6 @@
 # MegaMoe A2 收益复现与测试方法
 
-本文对应 2026-09-06 已验收的基线。命令分为 CPU 检查、CANN 算子对照、整模型开关对照，必须按顺序通过正确性和稳定性检查后再测性能。本次补充文档只做静态校验，没有重新启动模型或占用设备。
+本文对应 2026-09-06 已验收的基线。命令分为 CPU 检查、CANN 算子对照、整模型开关对照，必须按顺序通过正确性和稳定性检查后再测性能。第 2–9 节记录已完成的性能验收；第 10 节补充最终版本整模型 GSM8K 精度对照及原始结果。
 
 ## 1. 环境、源码和辅助文件
 
@@ -366,3 +366,112 @@ docker exec mm_ais ais_bench "$WORK/ais_config.py" \
 | AIS 平均 E2EL | 24877.1 ms | 24620.8 ms | −1.0303% |
 
 这些是历史验收观察值，不是新环境必须精确达到的固定阈值，也不是统计显著性或所有负载都有收益的保证。整模型收益对应整套优化的开关对照；算子的 15.29% 是 V4 相对 V2 的增量，不能标成整模型收益，也不能归因于单个 Python/CANN 提交。
+
+## 10. 最终版本整模型 GSM8K 精度对照
+
+补测执行窗口为北京时间 2026-09-06 晚至 2026-09-07 凌晨。
+
+这项补测使用第 1 节相同的已验收容器、模型、生产源码和 V4 算子包，先运行 `MEGAMOE=1`（`on_C1`），再运行 `MEGAMOE=0`（`off_A2`），每组均重新启动并通过第 6 节正确性和重复稳定性检查。执行前核对的已提交版本为 vLLM `a9696162099ec3d539b15c6fe0d39b8a31675212`、CANN `858c892e7aa259f65aaf0224d2231a33f8671fa9`；本次只新增精度资料，生产源码没有变化。
+
+使用 [OpenAI GSM8K 官方测试集](https://github.com/openai/grade-school-math/blob/3101c7d5072418e28b9008a6636bde82a006892c/grade_school_math/data/test.jsonl)全部 **1319 题**，数据 SHA256 为 `3730d312f6e3440559ace48831e51066acaca737f6eabec99bccb9e4b3c39d14`。AISBench 源码提交为 `1e7cb37e3d5d2101db47fe3fe2272c965375a69c`，沿用其 `gsm8k_gen_4_shot_cot_chat_prompt.py` 官方四示例 chat 提示词；该文件 SHA256 为 `4a423fb0e94293c63a2b2c7d8535212b5b1df45b35d3f94e0113d371853f7deb`。实际 tokenizer 的 `input_ids` 长度为 1473–1638，均达到 MegaMoe 的 512 token prefill 门槛。
+
+精度负载为 `VLLMCustomAPIChat`、非流式、C16、temperature=0、top_p=1、seed=1024、`max_out_len=2048`、`ignore_eos=False`，不额外覆盖模型默认 chat 模板。`retry=1` 在此 AISBench 版本表示每题总共一次 HTTP 尝试。两组使用同一份配置，原始配置 SHA256 为 `de2a1e79d198eaa1729f9cd5884b843a281968a9fa40184e70c9cd3b87e2a353`。
+
+主分数采用 AISBench 的 `accuracy`：先用官方 `extract_non_reasoning_content` 提取回答，再用 `gsm8k_postprocess` 和 `Gsm8kEvaluator` 与标准答案比较；保存全部原始预测和逐题明细，不根据结果临时改评分规则。此版本的 `correct`、`predictions`、`references` 为单元素列表，校验器会调用相同官方函数逐题复算。
+
+**本轮未证明整模型精度无损。** 开启组比关闭组少对 10 题，准确率低 0.7582 个百分点；原始输出文本也不相同。算子级已测用例的精确一致不能扩展成整模型无损结论。
+
+| 项目 | MEGAMOE=0 | MEGAMOE=1 |
+| --- | ---: | ---: |
+| 成功返回的预测 | 1319/1319 | 1319/1319 |
+| 正确题数 | 1080 | 1070 |
+| GSM8K accuracy | 81.8802% | 81.1221% |
+| 自然结束 stop | 1120 | 1103 |
+| 达输出上限 length | 199 | 216 |
+| error / abort | 0 / 0 | 0 / 0 |
+
+开启减关闭为 **-0.7582 个百分点**。逐题配对：都正确 995、都错误 164、仅开启正确 75、仅关闭正确 85；提取答案相同 1081/1319，原始输出文本相同 0/1319。
+
+这是所列模型、数据、提示词、输出预算和并发下的一轮完整整模型对照，未重复整组评测或定位误差来源。开启组触及输出上限的题数多 17，尚不能据此确定分差原因，也不能把差异单独归因于 V4 的专家波次优化。算子级已测 40 个 rank/case 的 `torch.equal` 与这里的任务准确率是两种证据；有限测试不能证明所有输入、模型或负载均无损，也不能据此宣称整模型逐位等价。所有达到输出预算的题目均保留在 1319 题分母中。测试服务已停止，借用的 7 号卡业务服务已恢复，Ready 和健康检查通过。
+
+可下载 [精度复现与原始结果包](megamoe_a2_accuracy_evidence.zip)，ZIP SHA256：`b0d97dc221bed8514d980f0daa06c4e97953063f02745f735f389c3bfc61cd97`。解压得到 `megamoe_accuracy_20260906/`；包内 `manifest.json` 校验全部文件，包括实测配置、逐题预测/评分、开关组请求结束计数、源码身份清单、配对 CSV 和离线汇总脚本。它与第 1 节的历史性能输入包分别保存。
+
+### 10.1 准备相同数据和配置
+
+以下在能访问模型目录和解压目录的 `mm_ais` 容器中执行，只准备数据与配置，不启动服务。`ACC_WORK` 必须是新目录；`prepare_accuracy.py` 固定官方数据 URL、哈希和题数，只替换实测配置中的模型、数据路径。
+
+```bash
+set -euo pipefail
+export ACC_REPRO=/data1/megamoe_accuracy_20260906
+export ACC_WORK=/data1/megamoe_accuracy_repro_$(date -u +%Y%m%dT%H%M%SZ)
+export MODEL_PATH=/data1/Qwen3.6-35B-A3B-w8a8
+python3 - <<'PY'
+from pathlib import Path
+import hashlib, json, os
+r = Path(os.environ['ACC_REPRO'])
+for row in json.loads((r / 'manifest.json').read_text()):
+    assert hashlib.sha256((r / row['path']).read_bytes()).hexdigest() == row['sha256'], row['path']
+print('ACCURACY_EVIDENCE_HASHES_PASS')
+PY
+python3 "$ACC_REPRO/prepare_accuracy.py" \
+  --source-config "$ACC_REPRO/gsm8k_accuracy.py" \
+  --work "$ACC_WORK" --model "$MODEL_PATH"
+python3 - <<'PY'
+from pathlib import Path
+import os
+from mmengine.config import Config
+from ais_bench.benchmark.cli.config_manager import CustomConfigChecker
+p = Path(os.environ['ACC_WORK']) / 'gsm8k_accuracy.py'
+c = Config.fromfile(str(p))
+CustomConfigChecker(c, str(p)).check()
+assert c.models[0].retry == 1 and c.models[0].generation_kwargs.ignore_eos is False
+assert c.models[0].batch_size == 16 and c.models[0].max_out_len == 2048
+PY
+ais_bench "$ACC_WORK/gsm8k_accuracy.py" --mode all --dry-run \
+  --num-warmups 0 --dump-eval-details -w "$ACC_WORK/dry_run"
+```
+
+如网络不可达，可给 `prepare_accuracy.py` 增加 `--dataset /绝对路径/test.jsonl` 复用已下载的官方原始文件；仍须通过相同哈希检查，不能使用旧 300 题子集或第 8 节的 32 条合成性能输入。
+
+### 10.2 开关组各跑完整测试集
+
+按照第 5–6 节先启动、验收开启组，并在所有终端保持同一 `ACC_WORK`。在宿主机测试终端执行一次单题联通检查；其结果不计入正式分数。这里只使用已验收服务，不自动停止其他业务。
+
+```bash
+docker exec mm_ais ais_bench "$ACC_WORK/gsm8k_accuracy.py" --mode all \
+  --num-prompts 1 --num-warmups 0 --dump-eval-details -w "$ACC_WORK/client_smoke_on"
+docker exec mm_ais python3 "$ACC_REPRO/verify_ais_result.py" "$ACC_WORK/client_smoke_on" 1
+```
+
+每组执行前，在宿主机终端设置与当前服务对应的 `export ARM=on_C1` 或 `export ARM=off_A2`，再执行下面的共同命令块。宿主机终端还需设置与容器内相同的 `ACC_WORK`、`ACC_REPRO` 绝对路径。
+
+以下每组执行一次：开启组设置 `ARM=on_C1`，完成后停止本轮已记录的服务、核对端口/worker/设备释放，再以 `MEGAMOE=0` 重新启动并通过第 6 节检查，然后设置 `ARM=off_A2`。其他设置保持不变。正式评测期间不向该服务插入其他推理请求，保证请求结束计数差值只对应 1319 题。
+
+```bash
+set -euo pipefail
+: "${ARM:?Set ARM to on_C1 or off_A2 for the running service}"
+[[ "$ARM" = on_C1 || "$ARM" = off_A2 ]]
+test ! -e "$ACC_WORK/$ARM"
+curl --fail --max-time 5 -s http://127.0.0.1:8077/metrics > "$ACC_WORK/${ARM}_metrics_before.txt"
+docker exec mm_ais ais_bench "$ACC_WORK/gsm8k_accuracy.py" --mode all \
+  --num-warmups 0 --dump-eval-details --dump-extract-rate -w "$ACC_WORK/$ARM" \
+  > "$ACC_WORK/ais_$ARM.log" 2>&1
+curl --fail --max-time 5 -s http://127.0.0.1:8077/metrics > "$ACC_WORK/${ARM}_metrics_after.txt"
+docker exec mm_ais python3 "$ACC_REPRO/verify_ais_result.py" "$ACC_WORK/$ARM" 1319
+```
+
+不能只凭 AISBench 退出码 0 判通过。校验器要求恰好 1319 个唯一 ID、全部预测成功且非空、没有失败记录、存在完整评分明细，并核对逐题正确数与总分。准备阶段曾因 `retry=0` 导致零次 HTTP 尝试但 CLI 仍返回 0；该轮已排除。另一启动脚本在端口检查阶段退出，尚未启动模型，也不计入精度对照。两次均保留失败资料；正式结果只来自完成全部检查的 `on_C1`/`off_A2`。
+
+### 10.3 离线配对与复核
+
+两组完成后，在 `mm_ais` 中执行，无需再启动模型：
+
+```bash
+python3 "$ACC_REPRO/summarize_accuracy.py" \
+  --off "$ACC_WORK/off_A2" --on "$ACC_WORK/on_C1" \
+  --metrics "$ACC_WORK" --output "$ACC_WORK/paired_summary"
+```
+
+脚本按题目 ID 对齐，要求两组 prompt、gold/reference 完全相同；输出正确题数、准确率差值、双方都正确/都错误/仅开启正确/仅关闭正确的分布，并单列文本与提取答案一致数。`vllm:request_success_total` 的前后差值核对正式请求数量及 `stop`/`length`/`abort`/`error` 等结束原因。`length` 属于输出预算限制，必须报告，不能静默删除这些题。
+
+复核已保存结果时，将上述 `ACC_WORK` 换为解压结果包目录，并为 `--output` 指定新的目录即可；无需重做 NPU 推理。测试结束后按第 9 节核对本轮进程、8077/29541 端口和设备，恢复借用资源。
