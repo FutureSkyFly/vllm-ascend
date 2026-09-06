@@ -21,6 +21,8 @@
 
 提交 ZIP 的 `reproduce/` 随附本次实际执行过的测试脚本、两个算子 case JSON、AIS 配置和完整的 32 条固定输入；`reproduce/manifest.json` 给出来源与 SHA256。这些辅助文件随提交包交付，不属于生产运行时代码。将提交包完整解压后设置 `REPRO`；仅复制本 Markdown 无法提供这些输入。
 
+可直接下载随仓库提交的 [复现测试输入包](megamoe_a2_reproduction_inputs.zip)，其中包括上述原始脚本、固定数据和地址检查器。解压后保留 `megamoe_submission_20260906/reproduce/` 的目录结构；ZIP SHA256：`b3dd83f804b5d98b15ca002d2f09d69ff7ccb2daa5db61444fdd6bbd0ad0ac6f`。
+
 以下代码块均为 **Linux Bash**，不要直接粘贴到 PowerShell。先在 `mm_q36` 容器内设置路径，替换示例中的源码和提交包目录：
 
 ```bash
