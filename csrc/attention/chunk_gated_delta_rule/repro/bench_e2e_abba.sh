@@ -87,9 +87,9 @@ runbench() {
 R=0
 for arm in base patch patch base; do
   if [ "$arm" = "base" ]; then
-    sed -i "s/^load_priority=$VENDOR,/load_priority=/" "$CFG"
+    sed -i "s/^load_priority=.*/load_priority=/" "$CFG"   # whole line: no trailing comma on a single-vendor install
   else
-    grep -q "^load_priority=$VENDOR," "$CFG" || sed -i "s/^load_priority=/load_priority=$VENDOR,/" "$CFG"
+    grep -q "^load_priority=$VENDOR" "$CFG" || sed -i "s/^load_priority=/load_priority=$VENDOR,/" "$CFG"
   fi
   R=$((R + 1)); TAG="${arm}_$R"
   echo "===== ARM $TAG vendor=$(cat "$CFG") ====="
@@ -97,5 +97,5 @@ for arm in base patch patch base; do
   runbench "$TAG"
   stop_server
 done
-sed -i "s/^load_priority=$VENDOR,/load_priority=/" "$CFG"
+sed -i "s/^load_priority=.*/load_priority=/" "$CFG"   # whole line: no trailing comma on a single-vendor install
 echo "DONE"

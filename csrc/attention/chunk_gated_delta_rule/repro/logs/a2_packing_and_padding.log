@@ -1,0 +1,84 @@
+################ PART 1: packing gate, round-level ABBA  npu:0  2026-09-07 09:03:20
+--- P1base   config.ini=[load_priority=gdrcust_transformer]  kernel.h md5=absent(base) ---
+P1base T8192_B16_nk4_nv8 mode=even packed=1 Teff=8192 lens[512,512,512,...,512] 2748.4
+P1base T8192_B16_nk4_nv8 mode=lastoff packed=1 Teff=8191 lens[512,512,512,...,511] 2751.2
+P1base T8192_B16_nk4_nv8 mode=off1 packed=0 Teff=8192 lens[511,513,512,...,512] 2772.3
+P1base T8192_B16_nk4_nv8 mode=jit packed=0 Teff=8192 lens[535,494,515,...,436] 2741.5
+P1base T8192_B16_nk2_nv4 mode=even packed=1 Teff=8192 lens[512,512,512,...,512] 2210.8
+P1base T8192_B16_nk2_nv4 mode=lastoff packed=1 Teff=8191 lens[512,512,512,...,511] 2212.4
+P1base T8192_B16_nk2_nv4 mode=off1 packed=0 Teff=8192 lens[511,513,512,...,512] 2232.0
+P1base T8192_B16_nk2_nv4 mode=jit packed=0 Teff=8192 lens[535,494,515,...,436] 2229.6
+P1base T2560_B40_nk2_nv4 mode=even packed=1 Teff=2560 lens[64,64,64,...,64] 2529.9
+P1base T2560_B40_nk2_nv4 mode=lastoff packed=1 Teff=2559 lens[64,64,64,...,63] 2541.5
+P1base T2560_B40_nk2_nv4 mode=off1 packed=0 Teff=2560 lens[63,65,64,...,64] 2528.8
+P1base T2560_B40_nk2_nv4 mode=jit packed=0 Teff=2560 lens[51,73,49,...,88] 2581.6
+P1base T8192_B1_nk4_nv8 mode=even packed=0 Teff=8192 lens[8192,...,8192] 1962.2
+P1base T8192_B1_nk4_nv8 mode=lastoff packed=0 Teff=8191 lens[8191,...,8191] 1951.5
+P1base T8192_B1_nk4_nv8 mode=off1 packed=0 Teff=8192 lens[8192,...,8192] 1980.8
+P1base T8192_B1_nk4_nv8 mode=jit packed=0 Teff=8192 lens[8192,...,8192] 1963.7
+--- P2patch   config.ini=[load_priority=gdrcust_transformer]  kernel.h md5=806d1f38 ---
+P2patch T8192_B16_nk4_nv8 mode=even packed=1 Teff=8192 lens[512,512,512,...,512] 1524.4
+P2patch T8192_B16_nk4_nv8 mode=lastoff packed=1 Teff=8191 lens[512,512,512,...,511] 1519.2
+P2patch T8192_B16_nk4_nv8 mode=off1 packed=0 Teff=8192 lens[511,513,512,...,512] 2346.1
+P2patch T8192_B16_nk4_nv8 mode=jit packed=0 Teff=8192 lens[535,494,515,...,436] 2322.7
+P2patch T8192_B16_nk2_nv4 mode=even packed=1 Teff=8192 lens[512,512,512,...,512] 1022.6
+P2patch T8192_B16_nk2_nv4 mode=lastoff packed=1 Teff=8191 lens[512,512,512,...,511] 1018.8
+P2patch T8192_B16_nk2_nv4 mode=off1 packed=0 Teff=8192 lens[511,513,512,...,512] 1901.8
+P2patch T8192_B16_nk2_nv4 mode=jit packed=0 Teff=8192 lens[535,494,515,...,436] 1798.6
+P2patch T2560_B40_nk2_nv4 mode=even packed=1 Teff=2560 lens[64,64,64,...,64] 392.0
+P2patch T2560_B40_nk2_nv4 mode=lastoff packed=1 Teff=2559 lens[64,64,64,...,63] 392.4
+P2patch T2560_B40_nk2_nv4 mode=off1 packed=0 Teff=2560 lens[63,65,64,...,64] 2010.9
+P2patch T2560_B40_nk2_nv4 mode=jit packed=0 Teff=2560 lens[51,73,49,...,88] 2083.8
+P2patch T8192_B1_nk4_nv8 mode=even packed=0 Teff=8192 lens[8192,...,8192] 1677.1
+P2patch T8192_B1_nk4_nv8 mode=lastoff packed=0 Teff=8191 lens[8191,...,8191] 1683.2
+P2patch T8192_B1_nk4_nv8 mode=off1 packed=0 Teff=8192 lens[8192,...,8192] 1729.5
+P2patch T8192_B1_nk4_nv8 mode=jit packed=0 Teff=8192 lens[8192,...,8192] 1688.1
+--- P3patch   config.ini=[load_priority=gdrcust_transformer]  kernel.h md5=806d1f38 ---
+P3patch T8192_B16_nk4_nv8 mode=even packed=1 Teff=8192 lens[512,512,512,...,512] 1522.1
+P3patch T8192_B16_nk4_nv8 mode=lastoff packed=1 Teff=8191 lens[512,512,512,...,511] 1524.3
+P3patch T8192_B16_nk4_nv8 mode=off1 packed=0 Teff=8192 lens[511,513,512,...,512] 2433.1
+P3patch T8192_B16_nk4_nv8 mode=jit packed=0 Teff=8192 lens[535,494,515,...,436] 2330.9
+P3patch T8192_B16_nk2_nv4 mode=even packed=1 Teff=8192 lens[512,512,512,...,512] 1011.9
+P3patch T8192_B16_nk2_nv4 mode=lastoff packed=1 Teff=8191 lens[512,512,512,...,511] 1020.9
+P3patch T8192_B16_nk2_nv4 mode=off1 packed=0 Teff=8192 lens[511,513,512,...,512] 1873.5
+P3patch T8192_B16_nk2_nv4 mode=jit packed=0 Teff=8192 lens[535,494,515,...,436] 1823.8
+P3patch T2560_B40_nk2_nv4 mode=even packed=1 Teff=2560 lens[64,64,64,...,64] 404.1
+P3patch T2560_B40_nk2_nv4 mode=lastoff packed=1 Teff=2559 lens[64,64,64,...,63] 402.1
+P3patch T2560_B40_nk2_nv4 mode=off1 packed=0 Teff=2560 lens[63,65,64,...,64] 2029.8
+P3patch T2560_B40_nk2_nv4 mode=jit packed=0 Teff=2560 lens[51,73,49,...,88] 2086.7
+P3patch T8192_B1_nk4_nv8 mode=even packed=0 Teff=8192 lens[8192,...,8192] 1704.6
+P3patch T8192_B1_nk4_nv8 mode=lastoff packed=0 Teff=8191 lens[8191,...,8191] 1685.3
+P3patch T8192_B1_nk4_nv8 mode=off1 packed=0 Teff=8192 lens[8192,...,8192] 1686.7
+P3patch T8192_B1_nk4_nv8 mode=jit packed=0 Teff=8192 lens[8192,...,8192] 1711.3
+--- P4base   config.ini=[load_priority=gdrcust_transformer]  kernel.h md5=absent(base) ---
+P4base T8192_B16_nk4_nv8 mode=even packed=1 Teff=8192 lens[512,512,512,...,512] 2747.3
+P4base T8192_B16_nk4_nv8 mode=lastoff packed=1 Teff=8191 lens[512,512,512,...,511] 2741.7
+P4base T8192_B16_nk4_nv8 mode=off1 packed=0 Teff=8192 lens[511,513,512,...,512] 2749.4
+P4base T8192_B16_nk4_nv8 mode=jit packed=0 Teff=8192 lens[535,494,515,...,436] 2721.9
+P4base T8192_B16_nk2_nv4 mode=even packed=1 Teff=8192 lens[512,512,512,...,512] 2206.8
+P4base T8192_B16_nk2_nv4 mode=lastoff packed=1 Teff=8191 lens[512,512,512,...,511] 2206.3
+P4base T8192_B16_nk2_nv4 mode=off1 packed=0 Teff=8192 lens[511,513,512,...,512] 2221.0
+P4base T8192_B16_nk2_nv4 mode=jit packed=0 Teff=8192 lens[535,494,515,...,436] 2213.8
+P4base T2560_B40_nk2_nv4 mode=even packed=1 Teff=2560 lens[64,64,64,...,64] 2532.3
+P4base T2560_B40_nk2_nv4 mode=lastoff packed=1 Teff=2559 lens[64,64,64,...,63] 2557.2
+P4base T2560_B40_nk2_nv4 mode=off1 packed=0 Teff=2560 lens[63,65,64,...,64] 2535.3
+P4base T2560_B40_nk2_nv4 mode=jit packed=0 Teff=2560 lens[51,73,49,...,88] 2591.2
+P4base T8192_B1_nk4_nv8 mode=even packed=0 Teff=8192 lens[8192,...,8192] 1964.2
+P4base T8192_B1_nk4_nv8 mode=lastoff packed=0 Teff=8191 lens[8191,...,8191] 1966.9
+P4base T8192_B1_nk4_nv8 mode=off1 packed=0 Teff=8192 lens[8192,...,8192] 1961.8
+P4base T8192_B1_nk4_nv8 mode=jit packed=0 Teff=8192 lens[8192,...,8192] 1975.8
+PACK_EXP_DONE  2026-09-07 09:18:52
+
+################ PART 2: host-side padding on the shipped kernel  2026-09-07 09:18:52
+### cfg=[load_priority=gdrcust_transformer]  kernel.h md5=806d1f38
+R1 T8192_B16_nk4_nv8 Tpad=8704 (+6.2%) packed_direct=0 packed_padded=1 bitexact_out=1 bitexact_state=1 direct=2353.1 padded_full=2982.5 padded_oponly=1633.0 net=+26.7%
+R1 T8192_B16_nk2_nv4 Tpad=8704 (+6.2%) packed_direct=0 packed_padded=1 bitexact_out=1 bitexact_state=1 direct=1860.6 padded_full=2232.9 padded_oponly=1091.6 net=+20.0%
+R1 T8192_B8_nk4_nv8 Tpad=8448 (+3.1%) packed_direct=0 packed_padded=1 bitexact_out=1 bitexact_state=1 direct=1849.7 padded_full=3040.3 padded_oponly=1722.2 net=+64.4%
+R1 T2560_B40_nk2_nv4 Tpad=3904 (+52.5%) packed_direct=0 packed_padded=1 bitexact_out=1 bitexact_state=1 direct=2096.6 padded_full=1050.1 padded_oponly=593.7 net=-49.9%
+R1 T4096_B8_nk4_nv8 Tpad=4352 (+6.2%) packed_direct=0 packed_padded=1 bitexact_out=1 bitexact_state=1 direct=1245.8 padded_full=1645.5 padded_oponly=887.9 net=+32.1%
+R2 T8192_B16_nk4_nv8 Tpad=8704 (+6.2%) packed_direct=0 packed_padded=1 bitexact_out=1 bitexact_state=1 direct=2353.2 padded_full=2974.2 padded_oponly=1652.9 net=+26.4%
+R2 T8192_B16_nk2_nv4 Tpad=8704 (+6.2%) packed_direct=0 packed_padded=1 bitexact_out=1 bitexact_state=1 direct=1818.4 padded_full=2215.6 padded_oponly=1093.1 net=+21.8%
+R2 T8192_B8_nk4_nv8 Tpad=8448 (+3.1%) packed_direct=0 packed_padded=1 bitexact_out=1 bitexact_state=1 direct=1844.8 padded_full=3046.5 padded_oponly=1716.5 net=+65.1%
+R2 T2560_B40_nk2_nv4 Tpad=3904 (+52.5%) packed_direct=0 packed_padded=1 bitexact_out=1 bitexact_state=1 direct=2109.6 padded_full=1034.5 padded_oponly=587.9 net=-51.0%
+R2 T4096_B8_nk4_nv8 Tpad=4352 (+6.2%) packed_direct=0 packed_padded=1 bitexact_out=1 bitexact_state=1 direct=1239.1 padded_full=1640.3 padded_oponly=884.4 net=+32.4%
+PAD_EXP_DONE  2026-09-07 09:21:19

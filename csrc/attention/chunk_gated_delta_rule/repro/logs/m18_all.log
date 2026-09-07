@@ -1,0 +1,588 @@
+@@@@@@@@@@ /data1/gdr_opt/shortout/shortout.log @@@@@@@@@@
+### 包内 .h md5 = 806d1f38  (应 806d1f38)
+### config.ini 原始 = [load_priority=gdrcust_transformer,custom_transformer,batch_invariant] / 去掉 gdrcust_transformer = [custom_transformer,batch_invariant]
+===== ARM base_1  config.ini=[load_priority=custom_transformer,batch_invariant] =====
+READY base_1 250s
+### base_1 in=1024 out=1 conc=32 r=0 seed=11111
+Successful requests:                     256       
+Benchmark duration (s):                  14.07     
+Request throughput (req/s):              18.20     
+Mean TTFT (ms):                          1676.02   
+Median TTFT (ms):                        1644.63   
+P99 TTFT (ms):                           2149.13   
+Mean E2EL (ms):                          1676.05   
+Median E2EL (ms):                        1644.65   
+### base_1 in=1024 out=1 conc=32 r=0.5 seed=11111
+Successful requests:                     256       
+Benchmark duration (s):                  13.88     
+Request throughput (req/s):              18.44     
+Mean TTFT (ms):                          1474.67   
+Median TTFT (ms):                        1535.26   
+P99 TTFT (ms):                           2004.57   
+Mean E2EL (ms):                          1674.59   
+Median E2EL (ms):                        1655.13   
+### base_1 in=512 out=1 conc=32 r=0 seed=22222
+Successful requests:                     256       
+Benchmark duration (s):                  9.21      
+Request throughput (req/s):              27.80     
+Mean TTFT (ms):                          1083.26   
+Median TTFT (ms):                        1105.25   
+P99 TTFT (ms):                           1538.04   
+Mean E2EL (ms):                          1083.29   
+Median E2EL (ms):                        1105.28   
+### base_1 in=512 out=1 conc=32 r=0.5 seed=22222
+Successful requests:                     256       
+Benchmark duration (s):                  10.40     
+Request throughput (req/s):              24.63     
+Mean TTFT (ms):                          1096.00   
+Median TTFT (ms):                        1086.75   
+P99 TTFT (ms):                           1551.77   
+Mean E2EL (ms):                          1223.93   
+Median E2EL (ms):                        1229.75   
+===== ARM patch_2  config.ini=[load_priority=gdrcust_transformer,custom_transformer,batch_invariant] =====
+READY patch_2 250s
+### patch_2 in=1024 out=1 conc=32 r=0 seed=11111
+Successful requests:                     256       
+Benchmark duration (s):                  13.66     
+Request throughput (req/s):              18.74     
+Mean TTFT (ms):                          1615.90   
+Median TTFT (ms):                        1612.46   
+P99 TTFT (ms):                           2126.39   
+Mean E2EL (ms):                          1615.93   
+Median E2EL (ms):                        1612.48   
+### patch_2 in=1024 out=1 conc=32 r=0.5 seed=11111
+Successful requests:                     256       
+Benchmark duration (s):                  13.53     
+Request throughput (req/s):              18.92     
+Mean TTFT (ms):                          1425.67   
+Median TTFT (ms):                        1582.41   
+P99 TTFT (ms):                           1987.31   
+Mean E2EL (ms):                          1630.72   
+Median E2EL (ms):                        1619.20   
+### patch_2 in=512 out=1 conc=32 r=0 seed=22222
+Successful requests:                     256       
+Benchmark duration (s):                  8.32      
+Request throughput (req/s):              30.78     
+Mean TTFT (ms):                          984.53    
+Median TTFT (ms):                        999.28    
+P99 TTFT (ms):                           1216.49   
+Mean E2EL (ms):                          984.55    
+Median E2EL (ms):                        999.30    
+### patch_2 in=512 out=1 conc=32 r=0.5 seed=22222
+Successful requests:                     256       
+Benchmark duration (s):                  9.19      
+Request throughput (req/s):              27.85     
+Mean TTFT (ms):                          958.62    
+Median TTFT (ms):                        957.64    
+P99 TTFT (ms):                           1337.46   
+Mean E2EL (ms):                          1091.91   
+Median E2EL (ms):                        1092.96   
+===== ARM patch_3  config.ini=[load_priority=gdrcust_transformer,custom_transformer,batch_invariant] =====
+READY patch_3 260s
+### patch_3 in=1024 out=1 conc=32 r=0 seed=11111
+Successful requests:                     256       
+Benchmark duration (s):                  13.53     
+Request throughput (req/s):              18.92     
+Mean TTFT (ms):                          1599.42   
+Median TTFT (ms):                        1597.22   
+P99 TTFT (ms):                           2125.99   
+Mean E2EL (ms):                          1599.45   
+Median E2EL (ms):                        1597.24   
+### patch_3 in=1024 out=1 conc=32 r=0.5 seed=11111
+Successful requests:                     256       
+Benchmark duration (s):                  13.51     
+Request throughput (req/s):              18.95     
+Mean TTFT (ms):                          1418.68   
+Median TTFT (ms):                        1578.56   
+P99 TTFT (ms):                           1983.19   
+Mean E2EL (ms):                          1623.65   
+Median E2EL (ms):                        1613.46   
+### patch_3 in=512 out=1 conc=32 r=0 seed=22222
+Successful requests:                     256       
+Benchmark duration (s):                  8.45      
+Request throughput (req/s):              30.31     
+Mean TTFT (ms):                          1004.76   
+Median TTFT (ms):                        1017.77   
+P99 TTFT (ms):                           1114.21   
+Mean E2EL (ms):                          1004.78   
+Median E2EL (ms):                        1017.80   
+### patch_3 in=512 out=1 conc=32 r=0.5 seed=22222
+Successful requests:                     256       
+Benchmark duration (s):                  8.51      
+Request throughput (req/s):              30.07     
+Mean TTFT (ms):                          871.30    
+Median TTFT (ms):                        868.17    
+P99 TTFT (ms):                           1099.23   
+Mean E2EL (ms):                          1009.03   
+Median E2EL (ms):                        1064.91   
+===== ARM base_4  config.ini=[load_priority=custom_transformer,batch_invariant] =====
+READY base_4 260s
+### base_4 in=1024 out=1 conc=32 r=0 seed=11111
+Successful requests:                     256       
+Benchmark duration (s):                  13.83     
+Request throughput (req/s):              18.52     
+Mean TTFT (ms):                          1633.67   
+Median TTFT (ms):                        1635.66   
+P99 TTFT (ms):                           2147.44   
+Mean E2EL (ms):                          1633.70   
+Median E2EL (ms):                        1635.68   
+### base_4 in=1024 out=1 conc=32 r=0.5 seed=11111
+Successful requests:                     256       
+Benchmark duration (s):                  13.77     
+Request throughput (req/s):              18.59     
+Mean TTFT (ms):                          1449.65   
+Median TTFT (ms):                        1613.65   
+P99 TTFT (ms):                           2016.28   
+Mean E2EL (ms):                          1658.04   
+Median E2EL (ms):                        1647.07   
+### base_4 in=512 out=1 conc=32 r=0 seed=22222
+Successful requests:                     256       
+Benchmark duration (s):                  8.65      
+Request throughput (req/s):              29.60     
+Mean TTFT (ms):                          1027.74   
+Median TTFT (ms):                        1038.17   
+P99 TTFT (ms):                           1160.42   
+Mean E2EL (ms):                          1027.76   
+Median E2EL (ms):                        1038.20   
+### base_4 in=512 out=1 conc=32 r=0.5 seed=22222
+Successful requests:                     256       
+Benchmark duration (s):                  8.60      
+Request throughput (req/s):              29.77     
+Mean TTFT (ms):                          880.43    
+Median TTFT (ms):                        872.31    
+P99 TTFT (ms):                           1107.54   
+Mean E2EL (ms):                          1019.71   
+Median E2EL (ms):                        1088.75   
+SHORTOUT_DONE  2026-09-07 09:29:35
+@@@@@@@@@@ /data1/gdr_opt/varlen/varlen.log @@@@@@@@@@
+### 包内 .h md5 = 806d1f38  (应 806d1f38)
+### config.ini 原始 = [load_priority=gdrcust_transformer,custom_transformer,batch_invariant] / 去掉 gdrcust_transformer = [custom_transformer,batch_invariant]
+===== ARM base_1  config.ini=[load_priority=custom_transformer,batch_invariant] =====
+READY base_1 260s
+### base_1 input=4096 out=256 seed=12345 range_ratio=0.5
+Successful requests:                     160       
+Benchmark duration (s):                  93.89     
+Request throughput (req/s):              1.70      
+Output token throughput (tok/s):         432.10    
+Mean TTFT (ms):                          1204.37   
+Median TTFT (ms):                        483.97    
+P99 TTFT (ms):                           7106.82   
+Mean TPOT (ms):                          66.03     
+Median TPOT (ms):                        68.50     
+Mean E2EL (ms):                          17783.40  
+Median E2EL (ms):                        17329.52  
+### base_1 input=6144 out=256 seed=54321 range_ratio=0.5
+Successful requests:                     160       
+Benchmark duration (s):                  118.69    
+Request throughput (req/s):              1.35      
+Output token throughput (tok/s):         340.68    
+Mean TTFT (ms):                          1691.55   
+Median TTFT (ms):                        812.15    
+P99 TTFT (ms):                           9730.65   
+Mean TPOT (ms):                          83.75     
+Median TPOT (ms):                        88.72     
+Mean E2EL (ms):                          22645.10  
+Median E2EL (ms):                        21579.25  
+===== ARM patch_2  config.ini=[load_priority=gdrcust_transformer,custom_transformer,batch_invariant] =====
+READY patch_2 250s
+### patch_2 input=4096 out=256 seed=12345 range_ratio=0.5
+Successful requests:                     160       
+Benchmark duration (s):                  92.70     
+Request throughput (req/s):              1.73      
+Output token throughput (tok/s):         437.64    
+Mean TTFT (ms):                          1167.23   
+Median TTFT (ms):                        454.20    
+P99 TTFT (ms):                           7017.18   
+Mean TPOT (ms):                          65.19     
+Median TPOT (ms):                        67.71     
+Mean E2EL (ms):                          17546.17  
+Median E2EL (ms):                        17058.16  
+### patch_2 input=6144 out=256 seed=54321 range_ratio=0.5
+Successful requests:                     160       
+Benchmark duration (s):                  116.83    
+Request throughput (req/s):              1.37      
+Output token throughput (tok/s):         346.10    
+Mean TTFT (ms):                          1672.42   
+Median TTFT (ms):                        758.03    
+P99 TTFT (ms):                           9802.70   
+Mean TPOT (ms):                          82.34     
+Median TPOT (ms):                        87.40     
+Mean E2EL (ms):                          22276.99  
+Median E2EL (ms):                        21287.23  
+===== ARM patch_3  config.ini=[load_priority=gdrcust_transformer,custom_transformer,batch_invariant] =====
+READY patch_3 250s
+### patch_3 input=4096 out=256 seed=12345 range_ratio=0.5
+Successful requests:                     160       
+Benchmark duration (s):                  92.60     
+Request throughput (req/s):              1.73      
+Output token throughput (tok/s):         438.14    
+Mean TTFT (ms):                          1172.07   
+Median TTFT (ms):                        523.86    
+P99 TTFT (ms):                           7006.50   
+Mean TPOT (ms):                          65.14     
+Median TPOT (ms):                        67.47     
+Mean E2EL (ms):                          17531.30  
+Median E2EL (ms):                        17055.77  
+### patch_3 input=6144 out=256 seed=54321 range_ratio=0.5
+Successful requests:                     160       
+Benchmark duration (s):                  118.18    
+Request throughput (req/s):              1.35      
+Output token throughput (tok/s):         342.15    
+Mean TTFT (ms):                          1644.41   
+Median TTFT (ms):                        748.93    
+P99 TTFT (ms):                           9582.00   
+Mean TPOT (ms):                          83.49     
+Median TPOT (ms):                        87.99     
+Mean E2EL (ms):                          22534.98  
+Median E2EL (ms):                        21603.50  
+===== ARM base_4  config.ini=[load_priority=custom_transformer,batch_invariant] =====
+READY base_4 260s
+### base_4 input=4096 out=256 seed=12345 range_ratio=0.5
+Successful requests:                     160       
+Benchmark duration (s):                  93.31     
+Request throughput (req/s):              1.71      
+Output token throughput (tok/s):         434.79    
+Mean TTFT (ms):                          1202.33   
+Median TTFT (ms):                        497.61    
+P99 TTFT (ms):                           7106.61   
+Mean TPOT (ms):                          65.53     
+Median TPOT (ms):                        68.14     
+Mean E2EL (ms):                          17653.38  
+Median E2EL (ms):                        17055.43  
+### base_4 input=6144 out=256 seed=54321 range_ratio=0.5
+Successful requests:                     160       
+Benchmark duration (s):                  119.30    
+Request throughput (req/s):              1.34      
+Output token throughput (tok/s):         338.94    
+Mean TTFT (ms):                          1679.53   
+Median TTFT (ms):                        782.23    
+P99 TTFT (ms):                           9583.44   
+Mean TPOT (ms):                          84.27     
+Median TPOT (ms):                        89.32     
+Mean E2EL (ms):                          22761.71  
+Median E2EL (ms):                        21853.93  
+VARLEN_DONE  2026-09-07 08:49:05
+@@@@@@@@@@ /data1/gdr_opt/bf16u/aligned.log @@@@@@@@@@
+PREV DONE, starting aligned run 2026-09-07 06:05:29
+### 包内 .h md5 = 806d1f38  (应 806d1f38)
+### config.ini 原始 = [load_priority=gdrcust_transformer,custom_transformer,batch_invariant] / 去掉 gdrcust_transformer = [custom_transformer,batch_invariant]
+===== ARM base_1  config.ini=[load_priority=custom_transformer,batch_invariant] =====
+READY base_1 250s
+### base_1 input=4096 output=256 seed=12345
+Successful requests:                     160       
+Benchmark duration (s):                  82.31     
+Request throughput (req/s):              1.94      
+Output token throughput (tok/s):         497.65    
+Mean TTFT (ms):                          2035.43   
+Median TTFT (ms):                        1630.56   
+P99 TTFT (ms):                           6669.60   
+Mean TPOT (ms):                          56.33     
+Median TPOT (ms):                        57.38     
+Mean E2EL (ms):                          16400.13  
+Median E2EL (ms):                        16416.11  
+### base_1 input=6144 output=256 seed=54321
+Successful requests:                     160       
+Benchmark duration (s):                  99.01     
+Request throughput (req/s):              1.62      
+Output token throughput (tok/s):         413.71    
+Mean TTFT (ms):                          2326.88   
+Median TTFT (ms):                        1643.27   
+P99 TTFT (ms):                           9481.29   
+Mean TPOT (ms):                          68.26     
+Median TPOT (ms):                        70.66     
+Mean E2EL (ms):                          19734.10  
+Median E2EL (ms):                        19670.99  
+===== ARM patch_2  config.ini=[load_priority=gdrcust_transformer,custom_transformer,batch_invariant] =====
+READY patch_2 260s
+### patch_2 input=4096 output=256 seed=12345
+Successful requests:                     160       
+Benchmark duration (s):                  82.57     
+Request throughput (req/s):              1.94      
+Output token throughput (tok/s):         496.05    
+Mean TTFT (ms):                          1967.15   
+Median TTFT (ms):                        1605.05   
+P99 TTFT (ms):                           6568.84   
+Mean TPOT (ms):                          56.81     
+Median TPOT (ms):                        57.99     
+Mean E2EL (ms):                          16454.32  
+Median E2EL (ms):                        16400.53  
+### patch_2 input=6144 output=256 seed=54321
+Successful requests:                     160       
+Benchmark duration (s):                  98.78     
+Request throughput (req/s):              1.62      
+Output token throughput (tok/s):         414.66    
+Mean TTFT (ms):                          2368.69   
+Median TTFT (ms):                        1629.93   
+P99 TTFT (ms):                           9349.00   
+Mean TPOT (ms):                          67.93     
+Median TPOT (ms):                        70.12     
+Mean E2EL (ms):                          19690.04  
+Median E2EL (ms):                        19575.24  
+===== ARM patch_3  config.ini=[load_priority=gdrcust_transformer,custom_transformer,batch_invariant] =====
+READY patch_3 250s
+### patch_3 input=4096 output=256 seed=12345
+Successful requests:                     160       
+Benchmark duration (s):                  81.69     
+Request throughput (req/s):              1.96      
+Output token throughput (tok/s):         501.40    
+Mean TTFT (ms):                          1813.65   
+Median TTFT (ms):                        1433.85   
+P99 TTFT (ms):                           6551.57   
+Mean TPOT (ms):                          56.72     
+Median TPOT (ms):                        58.17     
+Mean E2EL (ms):                          16277.94  
+Median E2EL (ms):                        16238.52  
+### patch_3 input=6144 output=256 seed=54321
+Successful requests:                     160       
+Benchmark duration (s):                  98.34     
+Request throughput (req/s):              1.63      
+Output token throughput (tok/s):         416.50    
+Mean TTFT (ms):                          2289.05   
+Median TTFT (ms):                        1612.56   
+P99 TTFT (ms):                           9395.26   
+Mean TPOT (ms):                          67.89     
+Median TPOT (ms):                        70.08     
+Mean E2EL (ms):                          19602.24  
+Median E2EL (ms):                        19488.94  
+===== ARM base_4  config.ini=[load_priority=custom_transformer,batch_invariant] =====
+READY base_4 250s
+### base_4 input=4096 output=256 seed=12345
+Successful requests:                     160       
+Benchmark duration (s):                  82.76     
+Request throughput (req/s):              1.93      
+Output token throughput (tok/s):         494.95    
+Mean TTFT (ms):                          2046.69   
+Median TTFT (ms):                        1639.56   
+P99 TTFT (ms):                           6704.93   
+Mean TPOT (ms):                          56.63     
+Median TPOT (ms):                        57.33     
+Mean E2EL (ms):                          16486.99  
+Median E2EL (ms):                        16459.29  
+### base_4 input=6144 output=256 seed=54321
+Successful requests:                     160       
+Benchmark duration (s):                  99.38     
+Request throughput (req/s):              1.61      
+Output token throughput (tok/s):         412.15    
+Mean TTFT (ms):                          2337.93   
+Median TTFT (ms):                        1651.34   
+P99 TTFT (ms):                           9534.03   
+Mean TPOT (ms):                          68.52     
+Median TPOT (ms):                        70.73     
+Mean E2EL (ms):                          19809.51  
+Median E2EL (ms):                        19697.88  
+ALIGNED_DONE  2026-09-07 06:38:56
+@@@@@@@@@@ /data1/gdr_opt/bf16/bf16.log @@@@@@@@@@
+### 装的包内 .h md5 = 806d1f38  (应 806d1f38)
+### config.ini 原始 = [load_priority=gdrcust_transformer,custom_transformer,batch_invariant]
+### 去掉 gdrcust_transformer 后 = [custom_transformer,batch_invariant]
+===== ARM base_1  config.ini=[load_priority=custom_transformer,batch_invariant] =====
+READY base_1 260s
+### base_1 prefix=1229 input=2867 seed=12345
+Successful requests:                     160       
+Benchmark duration (s):                  81.04     
+Request throughput (req/s):              1.97      
+Output token throughput (tok/s):         505.44    
+Mean TTFT (ms):                          1995.85   
+Median TTFT (ms):                        1632.16   
+P99 TTFT (ms):                           6669.85   
+Mean TPOT (ms):                          55.56     
+Median TPOT (ms):                        56.90     
+Mean E2EL (ms):                          16164.31  
+Median E2EL (ms):                        16141.15  
+### base_1 prefix=4301 input=1843 seed=54321
+Successful requests:                     160       
+Benchmark duration (s):                  96.85     
+Request throughput (req/s):              1.65      
+Output token throughput (tok/s):         422.93    
+Mean TTFT (ms):                          2404.51   
+Median TTFT (ms):                        1650.15   
+P99 TTFT (ms):                           9519.13   
+Mean TPOT (ms):                          66.28     
+Median TPOT (ms):                        68.42     
+Mean E2EL (ms):                          19305.08  
+Median E2EL (ms):                        19261.60  
+===== ARM patch_2  config.ini=[load_priority=gdrcust_transformer,custom_transformer,batch_invariant] =====
+READY patch_2 250s
+### patch_2 prefix=1229 input=2867 seed=12345
+Successful requests:                     160       
+Benchmark duration (s):                  79.65     
+Request throughput (req/s):              2.01      
+Output token throughput (tok/s):         514.23    
+Mean TTFT (ms):                          1850.67   
+Median TTFT (ms):                        1583.58   
+P99 TTFT (ms):                           6316.40   
+Mean TPOT (ms):                          55.04     
+Median TPOT (ms):                        56.43     
+Mean E2EL (ms):                          15884.65  
+Median E2EL (ms):                        15950.10  
+### patch_2 prefix=4301 input=1843 seed=54321
+Successful requests:                     160       
+Benchmark duration (s):                  95.73     
+Request throughput (req/s):              1.67      
+Output token throughput (tok/s):         427.85    
+Mean TTFT (ms):                          2351.57   
+Median TTFT (ms):                        1611.30   
+P99 TTFT (ms):                           9264.12   
+Mean TPOT (ms):                          65.62     
+Median TPOT (ms):                        67.67     
+Mean E2EL (ms):                          19085.40  
+Median E2EL (ms):                        19176.64  
+===== ARM patch_3  config.ini=[load_priority=gdrcust_transformer,custom_transformer,batch_invariant] =====
+READY patch_3 250s
+### patch_3 prefix=1229 input=2867 seed=12345
+Successful requests:                     160       
+Benchmark duration (s):                  80.16     
+Request throughput (req/s):              2.00      
+Output token throughput (tok/s):         511.01    
+Mean TTFT (ms):                          1864.93   
+Median TTFT (ms):                        1596.24   
+P99 TTFT (ms):                           6378.60   
+Mean TPOT (ms):                          55.38     
+Median TPOT (ms):                        56.87     
+Mean E2EL (ms):                          15986.01  
+Median E2EL (ms):                        16061.43  
+### patch_3 prefix=4301 input=1843 seed=54321
+Successful requests:                     160       
+Benchmark duration (s):                  96.28     
+Request throughput (req/s):              1.66      
+Output token throughput (tok/s):         425.44    
+Mean TTFT (ms):                          2288.51   
+Median TTFT (ms):                        1619.99   
+P99 TTFT (ms):                           9342.18   
+Mean TPOT (ms):                          66.28     
+Median TPOT (ms):                        68.51     
+Mean E2EL (ms):                          19189.36  
+Median E2EL (ms):                        19085.95  
+===== ARM base_4  config.ini=[load_priority=custom_transformer,batch_invariant] =====
+READY base_4 280s
+### base_4 prefix=1229 input=2867 seed=12345
+Successful requests:                     160       
+Benchmark duration (s):                  80.35     
+Request throughput (req/s):              1.99      
+Output token throughput (tok/s):         509.80    
+Mean TTFT (ms):                          1914.83   
+Median TTFT (ms):                        1621.45   
+P99 TTFT (ms):                           6461.79   
+Mean TPOT (ms):                          55.33     
+Median TPOT (ms):                        56.51     
+Mean E2EL (ms):                          16022.85  
+Median E2EL (ms):                        15989.44  
+### base_4 prefix=4301 input=1843 seed=54321
+Successful requests:                     160       
+Benchmark duration (s):                  96.79     
+Request throughput (req/s):              1.65      
+Output token throughput (tok/s):         423.18    
+Mean TTFT (ms):                          2328.71   
+Median TTFT (ms):                        1638.61   
+P99 TTFT (ms):                           9489.99   
+Mean TPOT (ms):                          66.52     
+Median TPOT (ms):                        68.62     
+Mean E2EL (ms):                          19292.33  
+Median E2EL (ms):                        19142.42  
+BF16_SCENARIO_DONE  2026-09-07 06:04:56
+@@@@@@@@@@ /data1/gdr_opt/aslprobe.log @@@@@@@@@@
+9f8bcf1f49e482ed9a0f1ff89361d0db  /data1/megamoe_q36/vllm-ascend/vllm_ascend/ops/gdn.py
+PATCHED /data1/megamoe_q36/vllm-ascend/vllm_ascend/ops/gdn.py backup at /data1/megamoe_q36/vllm-ascend/vllm_ascend/ops/gdn.py.gdrbak
+148:                _b._gdr_asl_n = 0          # deleting the log resets the budget
+149:            _n = getattr(_b, "_gdr_asl_n", 0)
+156:                _b._gdr_asl_n = _n + 1
+READY 270s
+=== warmup/startup calls so far: 0 ===
+########## A_in1024_r0 ##########
+Successful requests:                     64        
+Request throughput (req/s):              16.58     
+--- 该段共 1080 次调用 ---
+########## B_in1024_r05 ##########
+Successful requests:                     64        
+Request throughput (req/s):              17.85     
+--- 该段共 660 次调用 ---
+########## C_in512_r05 ##########
+Successful requests:                     64        
+Request throughput (req/s):              27.51     
+--- 该段共 210 次调用 ---
+########## 汇总 ##########
+=== asl_probe_A_in1024_r0.log  行数=1080 ===
+  b_packed=[1 0] 次数=120
+  b_packed=[8 0] 次数=240
+  b_packed=[9 0] 次数=720
+  前 3 行:
+    call0 b=1 T=1035 packed=0 lens=[1035]
+    call0 b=1 T=1035 packed=0 lens=[1035]
+    call0 b=1 T=1035 packed=0 lens=[1035]
+=== asl_probe_B_in1024_r05.log  行数=660 ===
+  b_packed=[1 0] 次数=120
+  b_packed=[10 0] 次数=120
+  b_packed=[4 0] 次数=30
+  b_packed=[9 0] 次数=390
+  前 3 行:
+    call0 b=1 T=1451 packed=0 lens=[1451]
+    call270 b=1 T=1451 packed=0 lens=[1451]
+    call270 b=1 T=1451 packed=0 lens=[1451]
+=== asl_probe_C_in512_r05.log  行数=210 ===
+  b_packed=[1 0] 次数=60
+  b_packed=[12 0] 次数=30
+  b_packed=[14 0] 次数=60
+  b_packed=[18 0] 次数=30
+  b_packed=[5 0] 次数=30
+  前 3 行:
+    call0 b=1 T=730 packed=0 lens=[730]
+    call1 b=1 T=730 packed=0 lens=[730]
+    call2 b=1 T=730 packed=0 lens=[730]
+ASLPROBE_DONE 2026-09-07 11:34:44
+REVERTED /data1/megamoe_q36/vllm-ascend/vllm_ascend/ops/gdn.py
+@@@@@@@@@@ /data1/gdr_opt/findalign.log @@@@@@@@@@
+gdn.py 原始 md5=9f8bcf1f49e482ed9a0f1ff89361d0db
+PATCHED /data1/megamoe_q36/vllm-ascend/vllm_ascend/ops/gdn.py backup at /data1/megamoe_q36/vllm-ascend/vllm_ascend/ops/gdn.py.gdrbak
+READY 270s
+input_len=1008  ->  实际 T=1019  余数 59    lens=[1019]
+      b=1 T=1019 packed=0
+      b=7 T=7128 packed=0
+input_len=1010  ->  实际 T=1020  余数 60    lens=[1020]
+      b=1 T=1020 packed=0
+      b=7 T=7143 packed=0
+input_len=1011  ->  实际 T=1021  余数 61    lens=[1021]
+      b=1 T=1021 packed=0
+      b=7 T=7150 packed=0
+input_len=1012  ->  实际 T=1023  余数 63    lens=[1023]
+      b=1 T=1023 packed=0
+      b=7 T=7156 packed=0
+input_len=1013  ->  实际 T=1023  余数 63    lens=[1023]
+      b=1 T=1023 packed=0
+      b=7 T=7164 packed=0
+input_len=1014  ->  实际 T=1025  余数 1    lens=[1025]
+      b=1 T=1025 packed=0
+      b=7 T=7170 packed=0
+input_len=1016  ->  实际 T=1026  余数 2    lens=[1026]
+      b=1 T=1026 packed=0
+      b=7 T=7185 packed=0
+input_len=1024  ->  实际 T=1035  余数 11    lens=[1035]
+      b=1 T=1035 packed=0
+      b=7 T=7240 packed=0
+input_len=500  ->  实际 T=511  余数 63    lens=[511]
+      b=1 T=511 packed=0
+      b=7 T=3572 packed=0
+input_len=501  ->  实际 T=512  余数 0  <<< 64 对齐  lens=[512]
+      b=1 T=512 packed=0
+      b=7 T=3579 packed=0
+input_len=512  ->  实际 T=522  余数 10    lens=[522]
+      b=1 T=522 packed=0
+      b=7 T=3657 packed=0
+FINDALIGN_DONE 2026-09-07 11:46:08
+REVERTED /data1/megamoe_q36/vllm-ascend/vllm_ascend/ops/gdn.py
+gdn.py 还原后 md5=9f8bcf1f49e482ed9a0f1ff89361d0db 残留=0
+@@@@@@@@@@ asl_probe vectors @@@@@@@@@@
+--- asl_probe_A_in1024_r0.log 行数=1080 ---
+  b/packed=1/0 次数=120
+  b/packed=8/0 次数=240
+  b/packed=9/0 次数=720
+--- asl_probe_B_in1024_r05.log 行数=660 ---
+  b/packed=10/0 次数=120
+  b/packed=1/0 次数=120
+  b/packed=4/0 次数=30
+  b/packed=9/0 次数=390
+--- asl_probe_C_in512_r05.log 行数=210 ---
+  b/packed=1/0 次数=60
+  b/packed=12/0 次数=30
+  b/packed=14/0 次数=60
+  b/packed=18/0 次数=30
+  b/packed=5/0 次数=30

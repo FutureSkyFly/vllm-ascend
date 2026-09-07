@@ -7,13 +7,14 @@
 # unchanged. Four deviations, all of them deliberate and all of them recorded
 # here rather than silently applied:
 #
-#  1. MODEL. Measured against the W8A8 checkpoint with `--quantization ascend`.
-#     The deployment script points at the unquantized bf16 checkpoint and passes
-#     no --quantization flag. The operator itself is bf16 either way, so its
-#     absolute time does not change; what changes is the denominator. W8A8 makes
-#     the MoE and the projections faster, which *raises* the operator's share of
-#     prefill (~16% measured). On bf16 that share is lower, so the end-to-end
-#     gain measured here is an upper bound for a bf16 deployment.
+#  1. MODEL. The first runs used the W8A8 checkpoint with `--quantization
+#     ascend`; the deployment script points at the unquantized bf16 checkpoint
+#     and passes no --quantization flag. Set QUANT="" to run bf16.
+#     An earlier version of this header predicted that the W8A8 result was an
+#     UPPER bound for bf16, on the reasoning that the operator is bf16 either way
+#     so its absolute time is fixed while bf16 enlarges the denominator. That was
+#     measured and did not hold -- bf16 came out the same or slightly better (see
+#     REPRODUCE.md section 8b). Do not carry the prediction forward; run both.
 #
 #  2. --additional-config key placement. fuse_muls_add and enable_npugraph_ex
 #     are nested under ascend_compilation_config. Flat at the top level they are
@@ -113,9 +114,9 @@ bench() {  # $1 tag  $2 prefix-len  $3 input-len  $4 seed
 R=0
 for arm in base patch patch base; do
   if [ "$arm" = "base" ]; then
-    sed -i "s/^load_priority=$VENDOR,/load_priority=/" "$CFG"
+    sed -i "s/^load_priority=.*/load_priority=/" "$CFG"   # whole line: no trailing comma on a single-vendor install
   else
-    grep -q "^load_priority=$VENDOR," "$CFG" || sed -i "s/^load_priority=/load_priority=$VENDOR,/" "$CFG"
+    grep -q "^load_priority=$VENDOR" "$CFG" || sed -i "s/^load_priority=/load_priority=$VENDOR,/" "$CFG"
   fi
   R=$((R + 1)); T="${arm}_$R"
   echo "===== ARM $T vendor=$(cat "$CFG") ====="
@@ -124,7 +125,7 @@ for arm in base patch patch base; do
   bench "$T" 4301 1843 54321
   stop
 done
-sed -i "s/^load_priority=$VENDOR,/load_priority=/" "$CFG"
+sed -i "s/^load_priority=.*/load_priority=/" "$CFG"   # whole line: no trailing comma on a single-vendor install
 echo "PROD_SCENARIO_DONE"
 echo
 echo "Report base as mean(arm1, arm4) and patch as mean(arm2, arm3), per metric."

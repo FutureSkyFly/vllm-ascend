@@ -4,14 +4,39 @@ Everything below was measured on 910B4-1 with the kernel source in this commit.
 The harness in this directory is the harness that produced the numbers; nothing
 was re-typed for the writeup.
 
+Raw logs are in `logs/`. What they cover, and what they do not:
+
+| Numbers | Log |
+|---|---|
+| section 1c: packing gate, host-side padding | `logs/a2_packing_and_padding.log` |
+| section 1c: real captured vectors | `logs/a2_realvectors.log` |
+| section 1 end-to-end, section 8b, the `actual_seq_lengths` probe | `logs/m18_all.log` |
+| section 1b second machine, and its `PASS all bit-exact` | `logs/a2_secondmachine.log` |
+| **section 1 operator table (the seven-row one)** | **not in this bundle** -- measured 2026-09-04 on A2 |
+| **the W8A8 production row, and the 71.06 s in 8b** | **not in this bundle** -- measured 2026-09-05 on m18 |
+| **the `COMPARED 36 tensors / PASS` in section 1** | **not in this bundle**; the same check on the second machine is in `logs/a2_secondmachine.log` |
+| the anecdotes with numbers in section 9 | not in this bundle |
+
+The unsourced rows are internally consistent -- every delta recomputes from the
+cells printed next to it -- which is exactly what internal consistency is worth.
+Where a logged measurement overlaps one of them it agrees to within 0.4pp: the
+gate log's `even` mode gives -53.9% and -84.3% against the table's -54.3% and
+-85.2%.
+
 ## 1. What is being claimed
 
 Bit-exactness, first: 36/36 output tensors compare equal under `torch.equal`
 across the 18 shapes in `ab_gdr.py`. Both operator outputs are checked, `o` and
 the final state `fs`. If this does not pass, nothing else matters.
 
-Operator level, one process per shape, one card, one session, round-level ABBA,
-median of 30, at Qwen3.6-35B-A3B GDN shapes (Dk=Dv=128, global Nk=16 / Nv=32):
+Operator level. **Read section 1c before quoting the multi-request rows**: they
+were measured on 64-aligned synthetic batches, which is a regime a live vLLM
+server never produces. The number for real traffic is -14.0% to -15.4%, and it is
+in section 1c. The four B=1 rows are not affected -- the gate needs `b > 1`.
+
+One process per shape, one card, one session, round-level ABBA, median of 30, at
+Qwen3.6-35B-A3B GDN shapes (Dk=Dv=128, global Nk=16 / Nv=32), with
+`asl = [T//B]*B`:
 
 | Config | Shape | Base (us) | Patch (us) | Delta | Within-arm spread |
 |---|---|---|---|---|---|
@@ -25,31 +50,189 @@ median of 30, at Qwen3.6-35B-A3B GDN shapes (Dk=Dv=128, global Nk=16 / Nv=32):
 
 The single-batch rows carry roughly +-1pp. The gain grows with how many
 sequences prefill in the same step, which is what changes 4 and 5 in the commit
-message address.
+message address -- **but only when those sequences are 64-aligned**; see 1c.
 
-End to end, Qwen3.6-35B-A3B-w8a8, TP4, `vllm bench serve`, four-arm ABBA with
-two passes per server instance; random 1024-token prompts, 128 requests,
-concurrency 32:
+End to end, `vllm bench serve`, TP4, four-arm ABBA. Prefill-dominated shape
+(random 1024-token prompts, `--random-range-ratio 0`, one output token,
+concurrency 32, 256 requests), bf16. **This shape is a diagnostic, chosen to
+maximise the operator's share of the step; it is not a deployment workload.** For
+the deployment workloads see the production table below.
 
 | Metric | Base | Patch | Delta |
 |---|---|---|---|
-| Median TTFT | 1444.4 ms | 1390.4 ms | -3.7% |
-| Mean TTFT | 1401.7 ms | 1342.3 ms | -4.2% |
-| P99 TTFT | 1826.7 ms | 1768.2 ms | -3.2% |
-| Request throughput | 20.52 req/s | 21.66 req/s | +5.6% |
-| Benchmark duration | 6.24 s | 5.91 s | -5.3% |
+| Median TTFT | 1640.15 ms | 1604.84 ms | -2.15% |
+| Mean TTFT | 1654.85 ms | 1607.66 ms | -2.85% |
+| P99 TTFT | 2148.29 ms | 2126.19 ms | -1.03% |
+| Request throughput | 18.36 req/s | 18.83 req/s | +2.56% |
+| Benchmark duration | 13.950 s | 13.595 s | -2.54% |
 
-All eight median-TTFT cells are non-overlapping: patch max 1391.95 < base min
-1436.26. Within a server instance the two passes differ by less than 0.05%.
+Four non-overlapping cells on duration, median TTFT, mean TTFT and P99.
+Within-arm spread is not uniform: 0.02-0.08% on P99, 0.55-0.95% on median TTFT,
+0.96-1.72% on duration and throughput, and 1.03-2.56% on mean TTFT. The mean-TTFT
+base arm (1676.02 / 1633.67 ms, 2.56%) is as wide as that metric's own -2.85%
+delta, so mean TTFT rests on the non-overlap alone; prefer median TTFT and
+duration. The same four arms at `--random-range-ratio 0.5` give -2.21% duration
+but **+0.38%** median TTFT with interleaved cells (base 1535.26 / 1613.65, patch
+1582.41 / 1578.56), so the range ratio is not a free parameter here.
 
-A production-shaped run (4096- and 6144-token prompts, 256 output tokens, 160
-requests, concurrency 32, `--max-num-batched-tokens 8192`) gains about 1%:
-throughput +0.7 to +1.1%, end-to-end latency -1.0 to -1.2%, median TTFT -1.7%
-on the shorter-prompt load with four non-overlapping cells. Two structural
-reasons, both outside the operator: 256 output tokens put 89% of end-to-end
-latency in decode, which runs the untouched recurrent operator; and prompts
-that size against an 8192-token budget admit only one or two sequences per
-prefill step, the operator's weakest regime.
+> An earlier revision of this file reported +5.6% throughput and -3.7% median
+> TTFT for this shape. That run used `--num-prompts 128`, a 6.24-second
+> benchmark, where start-up and tail are a large fraction of the total. Re-run
+> at `--num-prompts 256` (13.9 s) the same configuration gives the +2.56% above.
+> Take +2.56%. (The re-run also carried the deployment's `sysctl` settings and
+> jemalloc preload, so the environments are not identical; the sample size is
+> the likelier explanation but it is not isolated.)
+
+Production-shaped runs (4096- and 6144-token prompts, 256 output tokens, 160
+requests, concurrency 32, `--max-num-batched-tokens 8192`) gain about 1%. Four
+independent four-arm ABBA rounds:
+
+| Run | Throughput | Duration | Median TTFT |
+|---|---|---|---|
+| w8a8, prefix+input shapes | +0.67% / +1.08% | -0.55% / -0.98% | -1.73% (load 1) |
+| bf16, prefix+input shapes | +1.26% / +0.91% | -0.98% / -0.84% | -2.27% / -1.75% |
+| bf16, plain 4096 / 6144, `--random-range-ratio 0` | n/s / +0.62% | n/s / -0.64% | -1.58% (6144) |
+| bf16, plain 4096 / 6144, `--random-range-ratio 0.5` | +1.03% / +1.12% | -1.02% / -1.25% | -5.48% (6144) |
+
+The 4096 cells of the `--random-range-ratio 0` round are marked n/s. Its four
+passes interleave -- base 82.31 / 82.76 s against patch 82.57 / 81.69 s, with
+patch_2 slower than base_1 -- and the patch arm's 0.88 s within-arm spread is
+2.2x the 0.405 s between-arm delta, so by the rule in section 7 that round says
+nothing at 4096. The 6144 half of the same round is clean (patch 98.78 / 98.34 s
+against base 99.01 / 99.38 s). The -5.48% median TTFT has a 3.75% base-arm spread
+(812.15 / 782.23 ms against a 43.71 ms delta); treat it as directional.
+
+Throughput is `N/duration` with N fixed, quoted from vLLM's two-decimal req/s
+field, which quantises at 0.5-0.75% here. Where it disagrees with the duration
+column the duration figure is the one to take: the varlen-4096 cell reads +1.47%
+from the req/s field and +1.03% from the durations, and the table now carries the
+latter. Three of the throughput cells (aligned 4096, aligned 6144, varlen 6144)
+have overlapping arms while their duration cells do not.
+
+The first two rows use the deployment's own bench script (prefix 1229 + input
+2867 and prefix 4301 + input 1843); the last two use the deployment's other
+script (plain 4096 and 6144). The `--random-range-ratio 0.5` variant is not from
+either script -- it was introduced here to make the packing gate fail, see 1c.
+
+Two structural reasons the number is ~1% and not more, both outside the
+operator: 256 output tokens put 87.5-88.2% of mean end-to-end latency in decode
+on the fixed-length shapes and 92.5-93.2% on the range-ratio-0.5 ones, and decode runs
+the untouched recurrent operator; and prompts that size against an 8192-token
+budget admit only one or two sequences per prefill step, the operator's weakest
+regime.
+
+## 1c. What the operator gets from a live server, and what that costs
+
+Everything in section 1 above uses `asl = [T//B]*B`. `probe2.py` builds it that
+way and every shape in `bench_op_abba.sh` divides evenly (T/B = 8192, 512, 64,
+8192, 512, 8192, 8192), so the alignment half of the gate is always satisfied.
+The gate also needs `b > 1`, so only the three multi-request shapes (TP8 B=16,
+TP8 B=40, TP4 B=16) take the cross-sequence packing path; the four B=1 rows never
+do -- `packed = 0` there whatever the lengths -- and are unaffected by everything
+below. Production does not produce the aligned batches those three need.
+
+`patch_gdn.py` instruments `gdn.py` and logs what the operator actually
+receives. Across 1950 calls on a live server (TP4, `--max-num-batched-tokens
+8192`, one output token, concurrency 32, three prompt distributions):
+
+* `b` takes the values 1, 4, 5, 8, 9, 10, 12, 14 and 18. The operator does see
+  real multi-sequence batches -- this is not a `b == 1` situation.
+* `packed = 0` in **100%** of those calls, **including** with
+  `--random-range-ratio 0`.
+* The cause is the chat template. `--random-input-len 1024` arrives at the
+  operator as **1035** tokens and `512` arrives as **522**, so nothing is ever
+  64-aligned. A sweep of `--random-input-len` over 1008..1024 found nothing
+  aligned (remainders 59, 60, 61, 63, 63, 1, 2, 11); probing lower, 501 -> 512 for
+  a single request -- but at that setting a batch of 7 arrives as T=3579 rather
+  than 7x512=3584 and still reports `packed=0`, so a whole batch cannot be
+  aligned from the client side either. (The probe prints `lens=` only for b=1, so
+  "each prompt drifts by a token or two" is the inference; the b=7 total is the
+  measurement.)
+
+So the packed path is unreachable through this serving stack, and the -54.3%,
+-85.2% and -45.5% rows describe a regime production never enters.
+
+Measured on the captured vectors themselves (`real_seq_lengths.txt`,
+`bench_real_vectors.sh`), three arms, four-arm ABBA over base/patch:
+
+| Vector | b | Base (us) | Patch (us) | Delta | Patch, lengths padded to 64 | Delta |
+|---|---|---|---|---|---|---|
+| in=1024 r=0 | 9 | 2198.4 | 1883.2 | **-14.3%** | 1730.0 | -21.3% |
+| in=1024 r=0 | 8 | 2135.9 | 1807.0 | **-15.4%** | 1740.2 | -18.5% |
+| in=1024 r=0.5 | 9 | 2197.2 | 1889.8 | **-14.0%** | 1690.7 | -23.1% |
+| in=512 r=0.5 | 14 | 2303.3 | 1973.4 | **-14.3%** | 1409.3 | -38.8% |
+| in=512 r=0.5 | 18 | 2824.9 | 2402.3 | **-14.9%** | 1668.4 | -40.9% |
+
+**-14.0% to -15.4% is the operator number for real traffic** (all five captured
+vectors are nk=4 / nv=8, i.e. TP4 only; b=1 accounts for 300 of the 1950 logged
+calls and is not in this table), and it is flat from b=8 to b=18 to within the
+measurement's own within-arm spread, which reaches 2.9% on one patch arm.
+`Base` here is the unmodified-source package on the same vendor path, not the
+CANN built-in; section 1b measures those two 0.1-1.5% apart.
+
+The padded column satisfies the gate and so bounds what fixing it would buy; it
+is a lower bound, because it pays for 3.9-7.4% extra pad tokens that a
+kernel-side fix would not. It is operator time only, and `probe5.py`'s padding is
+a cost model rather than a valid transform, since its pad rows do not carry
+beta = 0 / g = 0. Host-side padding is not a shortcut to this gain: `probe4.py`
+measures the real thing on hardware -- bit-exact on both outputs in all ten rows
+-- and net of the scatter/gather it costs +26.6% / +20.9% / +64.8% / +32.2% on
+the 8192- and 4096-token shapes, with only T=2560 B=40 a win at -50.4%. The bound
+is on a kernel-side fix. The value of the gate depends
+strongly on `b`: padding removes a further 3.7-10.5% of the patched operator
+time at b=8..9, but 28.6-30.6% at b=14..18 (3.1-9.1pp and 24.5-26.0pp against the
+base arm, i.e. the difference of the two Delta columns above).
+
+Folding that back, on the assumption that the end-to-end gain is linear in the
+operator gain, and taking the operator's share of this prefill-dominated workload
+as -2.54% / -14.3% ~= 18% -- an inference from two ABBA deltas, not a measured
+share -- fixing the gate would take the 1024-token end-to-end gain from 2.5% to
+roughly 3.8%. The base arm's own two passes (14.07 s, 13.83 s) put that
+projection anywhere between 2.5% and 5.0%, so treat 3.8% as an order of
+magnitude. Measuring the share rather than inferring it needs a profiler run
+giving the operator's call count and per-call time against step time. At the
+512-token, b=14..18 end it is worth considerably more, but the end-to-end run at
+that shape had 21% within-arm spread and no number from it is quoted here.
+
+The gate itself, isolated (`bench_packing_gate.sh`, four-arm ABBA; only the
+length vector moves, the shape and the work are held fixed):
+
+| Shape | Mode | packed | Base | Patch | Delta |
+|---|---|---|---|---|---|
+| TP4 B16 | even | 1 | 2747.9 | 1523.3 | -44.6% |
+| TP4 B16 | lastoff | 1 | 2746.5 | 1521.8 | -44.6% |
+| TP4 B16 | off1 | 0 | 2760.9 | 2389.6 | -13.4% |
+| TP4 B16 | jit | 0 | 2731.7 | 2326.8 | -14.8% |
+| TP8 B16 | even | 1 | 2208.8 | 1017.3 | -53.9% |
+| TP8 B16 | lastoff | 1 | 2209.4 | 1019.9 | -53.8% |
+| TP8 B16 | off1 | 0 | 2226.5 | 1887.7 | -15.2% |
+| TP8 B16 | jit | 0 | 2221.7 | 1811.2 | -18.5% |
+| TP8 B40 | even | 1 | 2531.1 | 398.1 | -84.3% |
+| TP8 B40 | lastoff | 1 | 2549.4 | 397.3 | -84.4% |
+| TP8 B40 | off1 | 0 | 2532.1 | 2020.4 | -20.2% |
+| TP8 B40 | jit | 0 | 2586.4 | 2085.3 | -19.4% |
+| TP4 B1 (control) | all four | 0 | 1959-1971 | 1684-1708 | -13.4 to -14.0% |
+
+`off1` moves exactly one token from sequence 0 to sequence 1 and `lastoff` takes
+one token off the final sequence. `lastoff` introduces one partial chunk, on the
+final sequence; `off1` introduces two, on sequences 0 and 1, and one extra chunk
+of work (129 against 128 at B=16, 41 against 40 at B=40). Only `off1` trips the
+gate -- `packed` drops to 0 -- because the gate ignores the last sequence
+(`bid + 1 < b` in `chunk_gated_delta_rule.h`), so `lastoff` stays `packed = 1`.
+`lastoff` keeps the full -84.4% while `off1` collapses to -20.2%, and the base
+arm moves at most 1.1% across the modes shown, 2.2% including TP8 B40 `jit`
+(2531.1 to 2586.4) -- which cannot explain a 64pp swing, so the difference is the
+code path, not the shape. The B=1 control is `packed = 0` in every mode and lands
+within 0.7pp of itself, which is the noise floor.
+
+Two things follow. Most of the multi-request gain in section 1 is the packing,
+but not all of it. Strip the gate and TP4 B16 lands on the B=1 control (-13.4%
+`off1`, -14.8% `jit`, against a -13.4 to -14.0% control), but TP8 B16 lands at
+-15.2% / -18.5% and TP8 B40 at -20.2% / -19.4% -- 1 to 6pp better than the
+control, so batching still buys something with `packed = 0`. That comparison
+crosses a TP degree, because the only B=1 control in this experiment is TP4. And
+`bench_op_abba.sh` alone cannot see any of this, which is why
+`bench_packing_gate.sh` and `bench_real_vectors.sh` exist.
 
 ## 1b. Independent reproduction on a second machine
 
@@ -189,7 +372,7 @@ git clone -b 9.1.0 https://gitcode.com/cann/ops-transformer.git
 cd ops-transformer
 K=attention/chunk_gated_delta_rule/op_kernel
 
-# Copy the five files from csrc/attention/chunk_gated_delta_rule/op_kernel/arch22/
+# Copy the six headers from csrc/attention/chunk_gated_delta_rule/op_kernel/arch22/
 # in this branch into $K. This repo is flat: no csrc/ prefix and no arch22/ level.
 cp /path/to/branch/csrc/attention/chunk_gated_delta_rule/op_kernel/arch22/*.h $K/
 
@@ -243,7 +426,11 @@ correctly.
 ## 6. Correctness
 
 ```bash
-sed -i 's/^load_priority=gdrcust_transformer,/load_priority=/' $ASCEND_OPP_PATH/vendors/config.ini
+# NOT s/^load_priority=gdrcust_transformer,// -- on a single-vendor install there
+# is no trailing comma, that matches nothing, and the "base" arm then runs the
+# patched kernel against itself and prints PASS (section 3b).
+sed -i 's/^load_priority=.*/load_priority=/' $ASCEND_OPP_PATH/vendors/config.ini
+cat $ASCEND_OPP_PATH/vendors/config.ini   # must print load_priority= and nothing after
 GDR_OUT=/tmp/gdr GDR_DEV=0 SKIP_PERF=1 python ab_gdr.py base
 
 ./pkg.run --quiet
@@ -271,15 +458,46 @@ the within-arm spread alongside. A delta smaller than the spread is not a
 result -- on the T=2560 B=40 shape the two arms of one sweep came out +4.6% and
 -2.7%, opposite signs, which is the correct way to discover you have no signal.
 
+This sweep only measures 64-aligned batches. For what the operator does on real
+traffic, and for the packing gate that separates the two, run:
+
+```bash
+# needs BOTH packages: one built from unmodified source, one from this branch
+GDR_DEV=0 BASE_RUN=/work/pkg_base.run PATCH_RUN=/work/pkg_patch.run \
+  bash bench_packing_gate.sh  | tee packing_gate.log
+GDR_DEV=0 BASE_RUN=/work/pkg_base.run PATCH_RUN=/work/pkg_patch.run \
+  bash bench_real_vectors.sh  | tee real_vectors.log
+```
+
+To re-capture the length vectors on your own deployment rather than trusting the
+ones in `real_seq_lengths.txt`:
+
+```bash
+python3 patch_gdn.py /path/to/vllm_ascend/ops/gdn.py apply
+# the budget is per log file and is reset by deleting it, so point each bench at
+# its own path; one 64-prompt bench logged 1080 calls, so 400 would truncate it
+GDR_ASL_PROBE=2000 GDR_ASL_LOG=/tmp/asl_<bench>.log vllm serve ...   # then run a bench
+python3 patch_gdn.py /path/to/vllm_ascend/ops/gdn.py revert
+```
+
+`revert` restores byte-for-byte from the `.gdrbak` it wrote; run it from a shell
+`trap` so an interrupted probe cannot leave a shared container patched.
+
 ## 8. End to end
 
 ```bash
 MODEL=/path/to/Qwen3.6-35B-A3B-w8a8 CARDS=4,5,6,7 bash bench_e2e_abba.sh | tee e2e_abba.log
 ```
 
-Compare pass1 against pass1 and pass2 against pass2: there is a consistent
-~3.5% warmup improvement from the first bench to the second within one server
-instance, present in both arms.
+`bench_e2e_abba.sh` as shipped hardcodes `--num-prompts 128` and benches twice
+per arm. That is the 6.2-second configuration retracted in section 1, not the run
+that produced the table there. The section 1 numbers come from 256 prompts, four
+shape / range-ratio / seed combinations, and one bench per arm per shape. Set
+`NUM_PROMPTS=256` and run one bench per arm before comparing against it.
+
+Within one server instance the two passes of the old two-pass form differed by a
+consistent ~3.5%, present in both arms; that figure predates this round and no
+log in `logs/` contains a pass1/pass2 pair.
 
 ## 8b. Production-shaped scenario
 
@@ -293,11 +511,20 @@ MODEL=/path/to/model CARDS=4,5,6,7 bash bench_scenario_prod.sh | tee prod.log
 ```
 
 Its header lists the four deviations from the deployment script, of which one
-matters for interpreting the result: the runs here used the W8A8 checkpoint,
-while the deployment uses the unquantized bf16 one. The operator is bf16 either
-way and its absolute time is unchanged; W8A8 shrinks everything around it, which
-raises the operator's share of prefill. The ~1% end-to-end gain this scenario
-shows is therefore an upper bound for a bf16 deployment.
+matters for interpreting the result: the first runs used the W8A8 checkpoint,
+while the deployment uses the unquantized bf16 one. Set `QUANT=""` to run bf16.
+
+> An earlier revision predicted that the ~1% seen on W8A8 was an **upper bound**
+> for bf16, reasoning that the operator is bf16 either way so its absolute time
+> is fixed, while bf16 makes everything around it slower and therefore shrinks
+> its share. That prediction was measured and did not hold: bf16 gave -0.98% /
+> -0.84% duration and +1.26% / +0.91% throughput against W8A8's -0.55% / -0.98%
+> and +0.67% / +1.08% -- the same order, if anything slightly larger. Total
+> duration rose 13.6% (71.06 s -> 80.70 s) while the absolute saving roughly
+> doubled, which contradicts "the operator's absolute saving is constant". No
+> verified explanation; the way to get one is a profiler run on both checkpoints
+> comparing the operator's call count and per-call time. Treat the W8A8 and bf16
+> numbers as two measurements of the same ~1%, not as a bound and its interior.
 
 ## 9. Things that produced wrong numbers here
 
@@ -335,6 +562,33 @@ and `enable_npugraph_ex` belong inside `ascend_compilation_config`. At the top
 level, an `AscendConfig` built with pydantic `extra="forbid"` refuses to start;
 older versions without that setting accept the flat form and silently ignore
 the keys, so the options are off and nothing says so.
+
+**A synthetic length vector is a benchmark decision, not a neutral default.**
+`asl = [T//B]*B` selects the kernel's packed path for every shape in
+`bench_op_abba.sh`. Nothing in the harness said so and no output field showed
+which path ran, so two headline rows described a regime production never
+reaches. `probe3.py` prints `packed=` and `probe5.py` takes an explicit vector;
+if a benchmark can silently pick a code path, make the path an output field.
+
+**A retrying remote-exec wrapper runs the whole command twice.** The A2 helper
+retries on a dropped connection. The retry re-ran a launcher that truncated the
+log and started a second experiment instance; the two then installed different
+packages under each other and interleaved into one file. The result looked
+plausible. Guard launchers with an atomic `mkdir` lock -- both the remote script
+and the launcher -- which is what `bench_packing_gate.sh` and
+`bench_real_vectors.sh` now do.
+
+**The `.run` installer does not activate the package it just installed.** It
+writes `load_priority` only when `config.ini` does not already exist. Install
+over an existing file -- for instance one a previous built-in arm emptied -- and
+the files land but the vendor stays inactive, so the arm measures the CANN
+built-in while claiming to measure the patch. Always write `load_priority`
+explicitly after installing, and echo it.
+
+**A short benchmark is a noisy benchmark.** `--num-prompts 128` at this
+throughput is a 6.2-second run; the same configuration at 256 prompts (13.9 s)
+moved the headline from +5.6% to +2.56%. Size the run so start-up and tail are
+small, and quote the within-arm spread next to every number.
 
 ## 10. Rollback
 

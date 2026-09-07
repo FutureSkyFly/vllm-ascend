@@ -1,0 +1,87 @@
+@@@@@@@@@@ second-machine three-arm run (repro.log) @@@@@@@@@@
+### A2 干净容器复现  卡 npu:0  2026-09-06 15:21:26
+### torch_npu: 2.10.0.post4
+
+=== 1) 路由探针（未装包）===
+MAPS_PROBE: ["/usr/local/Ascend/cann-9.1.0/aarch64-linux/lib64/libopapi_nn.so", "/usr/local/Ascend/cann-9.1.0/aarch64-linux/lib64/libopapi_cv.so", "/usr/local/A
+DONE builtin (correctness only)
+
+=== 2) 装补丁包，再探路由 ===
+MAPS_PROBE: ["/usr/local/Ascend/cann-9.1.0/opp/vendors/gdrcust_transformer/op_api/lib/libcust_opapi.so", "/usr/local/Ascend/cann-9.1.0/opp/vendors/gdrcust_trans
+DONE patch (correctness only)
+
+=== 3) 正确性：内置 vs 补丁包（18 形状 / 36 张量）===
+BITEXACT c_tail5.pt:fs
+COMPARED 36 tensors
+RESULT: PASS all bit-exact
+
+=== 4) 性能：三臂轮级 ABBA（builtin / pkg_base / pkg_patch）===
+--- p1 builtin ---
+P1builtin 
+P1builtin 
+P1builtin 
+P1builtin 
+P1builtin 
+P1builtin 
+P1builtin 
+--- p2 pkgbase ---
+P2pkgbase T8192_B1_nk2_nv4 1497.4
+P2pkgbase T8192_B16_nk2_nv4 2191.0
+P2pkgbase T2560_B40_nk2_nv4 2537.2
+P2pkgbase T8192_B1_nk4_nv8 1956.0
+P2pkgbase T8192_B16_nk4_nv8 2776.5
+P2pkgbase T8192_B1_nk8_nv16 2626.2
+P2pkgbase T8192_B1_nk16_nv32 4787.7
+--- p3 pkgpatch ---
+P3pkgpatch T8192_B1_nk2_nv4 1264.5
+P3pkgpatch T8192_B16_nk2_nv4 1025.2
+P3pkgpatch T2560_B40_nk2_nv4 414.7
+P3pkgpatch T8192_B1_nk4_nv8 1708.4
+P3pkgpatch T8192_B16_nk4_nv8 1509.0
+P3pkgpatch T8192_B1_nk8_nv16 2415.3
+P3pkgpatch T8192_B1_nk16_nv32 4353.8
+--- p4 pkgpatch ---
+P4pkgpatch T8192_B1_nk2_nv4 1281.0
+P4pkgpatch T8192_B16_nk2_nv4 1036.5
+P4pkgpatch T2560_B40_nk2_nv4 402.6
+P4pkgpatch T8192_B1_nk4_nv8 1710.7
+P4pkgpatch T8192_B16_nk4_nv8 1525.3
+P4pkgpatch T8192_B1_nk8_nv16 2423.0
+P4pkgpatch T8192_B1_nk16_nv32 4373.5
+--- p5 pkgbase ---
+P5pkgbase T8192_B1_nk2_nv4 1507.9
+P5pkgbase T8192_B16_nk2_nv4 2224.8
+P5pkgbase T2560_B40_nk2_nv4 2534.2
+P5pkgbase T8192_B1_nk4_nv8 1951.7
+P5pkgbase T8192_B16_nk4_nv8 2753.7
+P5pkgbase T8192_B1_nk8_nv16 2638.7
+P5pkgbase T8192_B1_nk16_nv32 4766.0
+--- p6 builtin ---
+P6builtin 
+P6builtin 
+P6builtin 
+P6builtin 
+P6builtin 
+P6builtin 
+P6builtin 
+REPRO_DONE  2026-09-06 15:30:04
+
+@@@@@@@@@@ second-machine built-in arm (builtin.log) @@@@@@@@@@
+config.ini = [load_priority=]
+LD_LIBRARY_PATH 含 gdrcust: 0
+--- 路由自检（不应出现 gdrcust）---
+Q1 builtin T8192_B1_nk2_nv4 1486.8
+Q1 builtin T8192_B16_nk2_nv4 2181.3
+Q1 builtin T2560_B40_nk2_nv4 2537.3
+Q1 builtin T8192_B1_nk4_nv8 1942.3
+Q1 builtin T8192_B16_nk4_nv8 2794.9
+Q1 builtin T8192_B1_nk8_nv16 2607.6
+Q1 builtin T8192_B1_nk16_nv32 4770.3
+Q2 builtin T8192_B1_nk2_nv4 1473.9
+Q2 builtin T8192_B16_nk2_nv4 2167.5
+Q2 builtin T2560_B40_nk2_nv4 2504.8
+Q2 builtin T8192_B1_nk4_nv8 1951.4
+Q2 builtin T8192_B16_nk4_nv8 2741.3
+Q2 builtin T8192_B1_nk8_nv16 2617.1
+Q2 builtin T8192_B1_nk16_nv32 4790.2
+BUILTIN_ARM_DONE

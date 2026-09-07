@@ -1,0 +1,36 @@
+### real-batch packing value  npu:4  2026-09-07 11:48:45
+--- P1base  cfg=[load_priority=gdrcust_transformer]  md5=absent(base) ---
+P1base real  A_b9_in1024r0 nk4_nv8 b=9 T=8192 rawT=8192 pad=0 packed=0 2198.2
+P1base real  A_b8_in1024r0 nk4_nv8 b=8 T=8192 rawT=8192 pad=0 packed=0 2134.0
+P1base real  B_b9_in1024r05 nk4_nv8 b=9 T=8190 rawT=8190 pad=0 packed=0 2201.0
+P1base real  C_b14_in512r05 nk4_nv8 b=14 T=6677 rawT=6677 pad=0 packed=0 2303.8
+P1base real  C_b18_in512r05 nk4_nv8 b=18 T=8192 rawT=8192 pad=0 packed=0 2833.6
+--- P2patch  cfg=[load_priority=gdrcust_transformer]  md5=806d1f38 ---
+P2patch real  A_b9_in1024r0 nk4_nv8 b=9 T=8192 rawT=8192 pad=0 packed=0 1881.6
+P2patch padP  A_b9_in1024r0 nk4_nv8 b=9 T=8640 rawT=8192 pad=1 packed=1 1741.3
+P2patch real  A_b8_in1024r0 nk4_nv8 b=8 T=8192 rawT=8192 pad=0 packed=0 1809.9
+P2patch padP  A_b8_in1024r0 nk4_nv8 b=8 T=8576 rawT=8192 pad=1 packed=1 1724.6
+P2patch real  B_b9_in1024r05 nk4_nv8 b=9 T=8190 rawT=8190 pad=0 packed=0 1906.9
+P2patch padP  B_b9_in1024r05 nk4_nv8 b=9 T=8512 rawT=8190 pad=1 packed=1 1683.5
+P2patch real  C_b14_in512r05 nk4_nv8 b=14 T=6677 rawT=6677 pad=0 packed=0 2001.6
+P2patch padP  C_b14_in512r05 nk4_nv8 b=14 T=7168 rawT=6677 pad=1 packed=1 1396.9
+P2patch real  C_b18_in512r05 nk4_nv8 b=18 T=8192 rawT=8192 pad=0 packed=0 2423.7
+P2patch padP  C_b18_in512r05 nk4_nv8 b=18 T=8576 rawT=8192 pad=1 packed=1 1660.2
+--- P3patch  cfg=[load_priority=gdrcust_transformer]  md5=806d1f38 ---
+P3patch real  A_b9_in1024r0 nk4_nv8 b=9 T=8192 rawT=8192 pad=0 packed=0 1884.8
+P3patch padP  A_b9_in1024r0 nk4_nv8 b=9 T=8640 rawT=8192 pad=1 packed=1 1718.7
+P3patch real  A_b8_in1024r0 nk4_nv8 b=8 T=8192 rawT=8192 pad=0 packed=0 1804.0
+P3patch padP  A_b8_in1024r0 nk4_nv8 b=8 T=8576 rawT=8192 pad=1 packed=1 1755.8
+P3patch real  B_b9_in1024r05 nk4_nv8 b=9 T=8190 rawT=8190 pad=0 packed=0 1872.6
+P3patch padP  B_b9_in1024r05 nk4_nv8 b=9 T=8512 rawT=8190 pad=1 packed=1 1697.9
+P3patch real  C_b14_in512r05 nk4_nv8 b=14 T=6677 rawT=6677 pad=0 packed=0 1945.2
+P3patch padP  C_b14_in512r05 nk4_nv8 b=14 T=7168 rawT=6677 pad=1 packed=1 1421.6
+P3patch real  C_b18_in512r05 nk4_nv8 b=18 T=8192 rawT=8192 pad=0 packed=0 2380.9
+P3patch padP  C_b18_in512r05 nk4_nv8 b=18 T=8576 rawT=8192 pad=1 packed=1 1676.5
+--- P4base  cfg=[load_priority=gdrcust_transformer]  md5=absent(base) ---
+P4base real  A_b9_in1024r0 nk4_nv8 b=9 T=8192 rawT=8192 pad=0 packed=0 2198.6
+P4base real  A_b8_in1024r0 nk4_nv8 b=8 T=8192 rawT=8192 pad=0 packed=0 2137.7
+P4base real  B_b9_in1024r05 nk4_nv8 b=9 T=8190 rawT=8190 pad=0 packed=0 2193.4
+P4base real  C_b14_in512r05 nk4_nv8 b=14 T=6677 rawT=6677 pad=0 packed=0 2302.7
+P4base real  C_b18_in512r05 nk4_nv8 b=18 T=8192 rawT=8192 pad=0 packed=0 2816.2
+REALVEC_DONE  2026-09-07 11:56:26
