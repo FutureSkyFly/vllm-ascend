@@ -231,6 +231,41 @@ class TestUnifiedApplyMlpRequest(unittest.TestCase):
         self.assertEqual(first_call.kwargs["weight"][0].shape, torch.Size([2, 16, 8]))
         self.assertEqual(second_call.kwargs["weight"][0].shape, torch.Size([2, 8, 8]))
 
+    def test_unquant_fallback_accepts_flat_per_expert_weights(self):
+        # Reproduce MegaMoe's split weights reaching the ordinary GMM fallback.
+        for need_trans in (False, True):
+            with self.subTest(need_trans=need_trans):
+                w1 = [torch.randn(8, 16) for _ in range(2)]
+                w2 = [torch.randn(8, 8) for _ in range(2)]
+                expected = torch.randn(2, 8)
+                with (
+                    patch(
+                        "vllm_ascend.ops.fused_moe.moe_mlp.torch_npu.npu_grouped_matmul",
+                        side_effect=[[torch.randn(2, 16)], [expected]],
+                        create=True,
+                    ) as gmm,
+                    patch(
+                        "vllm_ascend.ops.fused_moe.moe_mlp.torch_npu.npu_swiglu",
+                        return_value=torch.randn(2, 8),
+                        create=True,
+                    ),
+                ):
+                    output, _ = unquant_apply_mlp(
+                        hidden_states=torch.randn(2, 8),
+                        w1=w1,
+                        w2=w2,
+                        group_list=torch.tensor([1, 1]),
+                        need_trans=need_trans,
+                    )
+                self.assertIs(output, expected)
+                for call, original in zip(gmm.call_args_list, (w1, w2)):
+                    weights = call.kwargs["weight"]
+                    self.assertEqual(len(weights), 2)
+                    self.assertTrue(all(isinstance(weight, torch.Tensor) and weight.ndim == 2 for weight in weights))
+                    for actual, before in zip(weights, original):
+                        torch.testing.assert_close(actual, before.T if need_trans else before)
+                        self.assertEqual(actual.untyped_storage().data_ptr(), before.untyped_storage().data_ptr())
+
     def test_request_unquant_path(self):
         hidden_states = torch.randn(2, 8)
         expected = torch.randn(2, 8)
