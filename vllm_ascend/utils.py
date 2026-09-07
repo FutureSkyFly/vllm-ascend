@@ -982,12 +982,20 @@ def get_cann_megamoe_buffer_params(
     ep_world_size: int,
     num_experts: int,
     num_topk: int,
+    *,
+    replicated_input: bool = False,
 ) -> tuple[int, int, int, int]:
     """Return max tokens, local experts, dummy rows, and receive bound."""
     dummy_token_capacity = get_cann_megamoe_dummy_token_capacity(num_experts, num_topk)
     num_max_tokens_per_rank = base_num_max_tokens_per_rank + dummy_token_capacity
-    if not 1 <= num_max_tokens_per_rank <= 4096:
-        raise ValueError(f"CANN MegaMoe requires num_max_tokens_per_rank in [1, 4096], got {num_max_tokens_per_rank}.")
+    token_limit = 4096 + dummy_token_capacity if replicated_input else 4096
+    if replicated_input and (ep_world_size, num_experts, num_topk) != (2, 256, 8):
+        raise ValueError("Replicated-input MegaMoe requires EP2, 256 experts and topk8.")
+    if base_num_max_tokens_per_rank < 1 or num_max_tokens_per_rank > token_limit:
+        raise ValueError(
+            f"CANN MegaMoe requires positive real-token capacity and num_max_tokens_per_rank <= {token_limit}, "
+            f"got {num_max_tokens_per_rank}."
+        )
     if ep_world_size not in {2, 4, 8, 16, 32}:
         raise ValueError(f"CANN MegaMoe only supports EP sizes 2, 4, 8, 16, and 32, got {ep_world_size}.")
     if num_experts % ep_world_size != 0:
@@ -995,7 +1003,8 @@ def get_cann_megamoe_buffer_params(
     if num_topk > 16:
         raise ValueError(f"CANN MegaMoe requires num_topk in [1, 16], got {num_topk}.")
     num_experts_per_rank = num_experts // ep_world_size
-    max_recv_token_num = num_max_tokens_per_rank * ep_world_size * min(num_topk, num_experts_per_rank)
+    source_ranks = 1 if replicated_input else ep_world_size
+    max_recv_token_num = num_max_tokens_per_rank * source_ranks * min(num_topk, num_experts_per_rank)
     return (
         num_max_tokens_per_rank,
         num_experts_per_rank,
@@ -1037,12 +1046,15 @@ def calculate_cann_megamoe_hccl_buffer_size() -> int:
         )
     )
     hidden = int(getattr(hf_text_config, "hidden_size", None) or model_config.get_hidden_size())
+    replicated_input = get_ascend_config().mega_moe_replicated_input
     num_max_tokens_per_rank, _, dummy_token_capacity, max_recv_token_num = get_cann_megamoe_buffer_params(
-        math.ceil(vllm_config.scheduler_config.max_num_batched_tokens / tp_size),
+        math.ceil(vllm_config.scheduler_config.max_num_batched_tokens / tp_size) * (tp_size if replicated_input else 1),
         ep_world_size,
         num_experts,
         num_topk,
+        replicated_input=replicated_input,
     )
+    comm_kwargs = {"comm_alg": "replicated_input"} if replicated_input else {}
     buffer_size_mb = int(
         get_mega_moe_ccl_buffer_size(
             ep_world_size,
@@ -1050,9 +1062,10 @@ def calculate_cann_megamoe_hccl_buffer_size() -> int:
             num_max_tokens_per_rank,
             num_topk,
             hidden,
-            max_recv_token_num=max_recv_token_num,
-            dispatch_quant_mode=2,
-            dispatch_quant_out_dtype=torch.int8,
+            max_recv_token_num=0 if replicated_input else max_recv_token_num,
+            dispatch_quant_mode=0 if replicated_input else 2,
+            dispatch_quant_out_dtype=None if replicated_input else torch.int8,
+            **comm_kwargs,
         )
     )
     if buffer_size_mb <= 0:

@@ -98,6 +98,8 @@ class AscendMoERunner(MoERunner):  # type: ignore[no-redef]
             and routed_output_transform is None
             and self._get_shared_expert_parallel_mode() is SharedExpertParallelMode.TENSOR_PARALLEL
         )
+        if get_ascend_config().mega_moe_replicated_input and not self._a2_defer_tp_reduction:
+            raise ValueError("Replicated MegaMoe requires the existing deferred shared+routed TP reduction.")
 
         setup_moe_comm_method(self.moe_config)
         alltoall_comm = get_moe_comm_method(MoECommType.ALLTOALL)

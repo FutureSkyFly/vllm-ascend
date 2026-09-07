@@ -368,6 +368,55 @@ class PrepareAndFinalizeWithMC2(PrepareAndFinalizeWithAll2All):
         return input_ids
 
 
+class PrepareAndFinalizeWithReplicatedMegaMoe(PrepareAndFinalizeWithMC2):
+    """Keep full TP-replicated tokens; return local expert partial outputs.
+
+    The MoE runner must combine routed and shared expert contributions in its
+    existing TP sum. Inherit MC2's deferred-finalization interface, but do not
+    split tokens or re-embed a token shard.
+    """
+
+    def __init__(self, moe_config: FusedMoEConfig):
+        super().__init__(moe_config)
+        if (
+            self.tp_size != 2
+            or moe_config.ep_size != 2
+            or moe_config.dp_size != 1
+            or moe_config.pcp_size != 1
+            or moe_config.is_sequence_parallel
+            or (moe_config.num_experts, moe_config.hidden_dim, moe_config.intermediate_size_per_partition)
+            != (256, 2048, 512)
+            or moe_config.experts_per_token != 8
+        ):
+            raise ValueError(
+                "Replicated MegaMoe requires the validated BF16 TP2/EP2 layout without sequence parallelism."
+            )
+
+    def prepare(self, hidden_states, router_logits, replace_allreduce=False, quant_type=QuantType.NONE):
+        if replace_allreduce or quant_type != QuantType.NONE or hidden_states.dtype != torch.bfloat16:
+            raise ValueError("Replicated MegaMoe requires unsharded BF16 input and unquantized experts.")
+        self.num_tokens = hidden_states.shape[0]
+        self.replace_allreduce = False
+        return MoEPrepareOutput(
+            hidden_states=hidden_states,
+            router_logits=router_logits,
+            mc2_mask=None,
+            padded_hidden_states_shape=hidden_states.shape,
+            pertoken_scale=None,
+        )
+
+    def finalize_tp_partial(self, hidden_states, padded_hidden_states_shape):
+        if hidden_states.shape != padded_hidden_states_shape:
+            raise ValueError("Replicated MegaMoe must preserve the full real-token output shape.")
+        return hidden_states
+
+    def finalize(self, hidden_states, reduce_results, padded_hidden_states_shape=None):
+        raise RuntimeError("Replicated MegaMoe requires the runner's deferred shared+routed TP reduction.")
+
+    def pad_and_split_input_ids(self, input_ids):
+        return input_ids
+
+
 class PrepareAndFinalizeWithAllGather(PrepareAndFinalize):
     """
     MoE communication strategy using All-Gather + Reduce-Scatter on EP group.

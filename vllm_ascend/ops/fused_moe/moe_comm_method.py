@@ -37,6 +37,7 @@ from vllm_ascend.ops.fused_moe.prepare_finalize import (
     PrepareAndFinalizeWithAll2All,
     PrepareAndFinalizeWithAllGather,
     PrepareAndFinalizeWithMC2,
+    PrepareAndFinalizeWithReplicatedMegaMoe,
 )
 from vllm_ascend.ops.fused_moe.token_dispatcher import (
     MoETokenDispatcher,
@@ -358,6 +359,8 @@ class FusedMC2CommImpl(MoECommMethod):
         return TokenDispatcherWithMC2()
 
     def _get_prepare_finalize(self):
+        if get_ascend_config().mega_moe_replicated_input:
+            return PrepareAndFinalizeWithReplicatedMegaMoe(self.moe_config)
         return PrepareAndFinalizeWithMC2(self.moe_config)
 
     def _init_mega_moe_symm_buffer(
@@ -369,6 +372,7 @@ class FusedMC2CommImpl(MoECommMethod):
         # setup_moe_comm_method), which is where global_bs / ep_world_size live.
         # Assert it so mypy resolves those attributes off the base dispatcher.
         assert isinstance(self.token_dispatcher, TokenDispatcherWithMC2)
+        replicated_input = get_ascend_config().mega_moe_replicated_input
         group = get_mc2_group().device_group
         # The sym buffer is allocated by get_symm_buffer_for_mega_moe, a
         # collective handshake over the EP (mc2) group. Its shape params —
@@ -388,6 +392,10 @@ class FusedMC2CommImpl(MoECommMethod):
             # from scheduler/graph config — rank-invariant.
             rank_invariant_cap = getattr(self.token_dispatcher, "max_num_tokens_per_rank", 0)
             base_num_max_tokens_per_rank = max(1, int(rank_invariant_cap))
+        if replicated_input:
+            # This mode keeps the original full TP2 input, rather than one
+            # token shard. Match the process-group query's rounded capacity.
+            base_num_max_tokens_per_rank *= int(self.token_dispatcher.ep_world_size)
         num_topk = int(self.moe_config.experts_per_token)
         num_experts = int(self.moe_config.num_experts)
         expert_per_rank = max(1, num_experts // int(self.token_dispatcher.ep_world_size))
@@ -403,6 +411,7 @@ class FusedMC2CommImpl(MoECommMethod):
                 int(self.token_dispatcher.ep_world_size),
                 num_experts,
                 num_topk,
+                replicated_input=replicated_input,
             )
 
         logger.info(
@@ -416,6 +425,7 @@ class FusedMC2CommImpl(MoECommMethod):
             max_recv_token_num,
         )
 
+        comm_kwargs = {"comm_alg": "replicated_input"} if replicated_input else {}
         return self.get_symm_buffer_for_mega_moe(
             group,
             num_experts,
@@ -426,12 +436,15 @@ class FusedMC2CommImpl(MoECommMethod):
             max_recv_token_num=0 if _is_a2_megamoe_enabled(get_ascend_config()) else max_recv_token_num,
             dispatch_quant_mode=dispatch_quant_mode,
             dispatch_quant_out_dtype=dispatch_quant_out_dtype,
+            **comm_kwargs,
         )
 
     def _apply_cann_mega_moe(
         self,
         fused_experts_input: MoEFusedExpertsInput,
     ):
+        if get_ascend_config().mega_moe_replicated_input and fused_experts_input.quant.quant_type != QuantType.NONE:
+            raise ValueError("Replicated MegaMoe only supports unquantized BF16 experts.")
         if _is_a2_megamoe_enabled(get_ascend_config()) and fused_experts_input.quant.quant_type not in (
             QuantType.NONE,
             QuantType.W8A8,
