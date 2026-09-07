@@ -1,0 +1,31 @@
+# actual_seq_lengths vectors captured from a live vLLM server, 2026-09-07.
+#
+# How: patch_gdn.py applied to vllm_ascend/ops/gdn.py, GDR_ASL_PROBE set, one
+# server, three benchmarks. 1950 calls logged. Server configuration:
+#   Qwen3.6-35B-A3B bf16, TP4, --max-num-seqs 32, --max-num-batched-tokens 8192,
+#   --enable-chunked-prefill, --no-enable-prefix-caching, --async-scheduling,
+#   vllm bench serve --backend openai-chat --random-output-len 1
+#   --max-concurrency 32 --num-prompts 64
+#
+# What it showed, and why these vectors exist:
+#   * b ranges over 1, 4, 5, 8, 9, 10, 12, 14, 18 -- the operator really does
+#     get multi-sequence batches.
+#   * packed = 0 in 100% of 1950 calls, INCLUDING with --random-range-ratio 0.
+#   * the reason is the chat template. --random-input-len 1024 arrives as 1035
+#     tokens; 512 arrives as 522. Nothing is ever 64-aligned, so the gate at
+#     chunk_gated_delta_rule.h never passes and the packed path is dead in this
+#     serving stack.
+#   * a sweep of --random-input-len over 1008..1024 found nothing aligned
+#     (remainders 59, 60, 61, 63, 63, 1, 2, 11); probing lower, 501 -> 512 for a
+#     single request -- but a batch of 7 then arrives as T=3579, not 7x512=3584,
+#     and still reports packed=0, so a whole batch cannot be aligned from the
+#     client side either.
+#
+# Format: tag|nk|nv|comma-separated lengths.  nk/nv are the per-rank head counts
+# at TP4 for this model (global Nk=16 / Nv=32).  Feed to probe5.py; see
+# bench_real_vectors.sh.
+A_b9_in1024r0|4|8|164,1034,1035,1034,1035,1034,1034,788,1034
+A_b8_in1024r0|4|8|1034,1034,1035,1034,1035,1034,1034,952
+B_b9_in1024r05|4|8|707,723,867,1104,952,1276,877,1029,655
+C_b14_in512r05|4|8|431,581,318,690,598,720,271,331,368,354,529,370,392,724
+C_b18_in512r05|4|8|579,447,462,575,760,316,430,498,438,557,429,366,481,444,520,542,293,55

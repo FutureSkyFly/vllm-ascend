@@ -1,0 +1,3 @@
+# The repository root .gitignore excludes *.log. These four are evidence, not
+# build output: REPRODUCE.md cites them line by line, so they are tracked.
+!*.log

@@ -25,9 +25,13 @@ CFG=$V/config.ini
 # Qwen3.6-35B-A3B GDN shapes (Dk=Dv=128, global Nk=16 / Nv=32) at each TP degree.
 SHAPES="8192_1_2_4 8192_16_2_4 2560_40_2_4 8192_1_4_8 8192_16_4_8 8192_1_8_16 8192_1_16_32"
 
-use_base()  { sed -i "s/^load_priority=$VENDOR,/load_priority=/" "$CFG"; }
-use_patch() { grep -q "^load_priority=$VENDOR," "$CFG" \
-              || sed -i "s/^load_priority=/load_priority=$VENDOR,/" "$CFG"; }
+# Rewrite the whole line rather than stripping "$VENDOR,". With a single custom
+# vendor installed there is no trailing comma, so the comma form matches nothing
+# and the base arm silently keeps running the patched kernel.
+BASE_PRIO=$(sed -n 's/^load_priority=//p' "$CFG" | sed "s/^$VENDOR,//;s/^$VENDOR$//")
+use_base()  { echo "load_priority=$BASE_PRIO" > "$CFG"; }
+use_patch() { [ -z "$BASE_PRIO" ] && echo "load_priority=$VENDOR" > "$CFG" \
+              || echo "load_priority=$VENDOR,$BASE_PRIO" > "$CFG"; }
 
 sweep() {  # $1 = arm label, $2 = 1 to put the vendor's op_api on LD_LIBRARY_PATH
   for s in $SHAPES; do
