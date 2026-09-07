@@ -138,6 +138,13 @@ def _compute_a2_cann_megamoe_support(vllm_config: VllmConfig, is_draft_model: bo
     num_experts_per_rank = num_experts // ep_world_size
     hidden_min, hidden_max = _MEGA_MOE_HIDDEN_RANGE
     intermediate_min, intermediate_max = _MEGA_MOE_INTERMEDIATE_HIDDEN_RANGE
+    quant_name = _get_a2_cann_megamoe_quant_name(vllm_config)
+    unquantized_bf16 = (
+        quant_name is None
+        and getattr(vllm_config, "quant_config", None) is None
+        and getattr(model_config, "quantization", None) is None
+        and getattr(model_config, "dtype", None) == torch.bfloat16
+    )
     return (
         hidden_min <= hidden_size <= hidden_max
         and hidden_size % _MEGA_MOE_DIM_ALIGNMENT == 0
@@ -145,7 +152,7 @@ def _compute_a2_cann_megamoe_support(vllm_config: VllmConfig, is_draft_model: bo
         and intermediate_hidden % _MEGA_MOE_DIM_ALIGNMENT == 0
         and 1 <= num_topk <= _A2_CANN_MEGAMOE_MAX_TOPK
         and 1 <= num_experts_per_rank <= _A2_CANN_MEGAMOE_MAX_EXPERTS_PER_RANK
-        and _get_a2_cann_megamoe_quant_name(vllm_config) in _A2_CANN_MEGAMOE_SUPPORTED_QUANT_NAMES
+        and (quant_name in _A2_CANN_MEGAMOE_SUPPORTED_QUANT_NAMES or unquantized_bf16)
     )
 
 
@@ -420,7 +427,7 @@ def select_moe_comm_method(
     1. Non-MoE models return `None`.
     2. Without expert parallel, fall back to all-gather.
     3. On A2 with expert parallel, prefer CANN MegaMoe for supported V1,
-       single-DP W8A8/W4A8 batches; otherwise use MC2 or all-gather.
+       single-DP BF16/W8A8/W4A8 batches; otherwise use MC2 or all-gather.
     4. On A3 with expert parallel, prefer fused MC2 when enabled and the EP
        group size is small enough; otherwise use MC2 within capacity or
        all-to-all.

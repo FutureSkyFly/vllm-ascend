@@ -433,11 +433,12 @@ class FusedMC2CommImpl(MoECommMethod):
         fused_experts_input: MoEFusedExpertsInput,
     ):
         if _is_a2_megamoe_enabled(get_ascend_config()) and fused_experts_input.quant.quant_type not in (
+            QuantType.NONE,
             QuantType.W8A8,
             QuantType.W4A8,
         ):
             raise RuntimeError(
-                "CANN MegaMoe on A2 supports only W8A8/W4A8 INT routed experts, got "
+                "CANN MegaMoe on A2 supports BF16 or W8A8/W4A8 INT routed experts, got "
                 f"{fused_experts_input.quant.quant_type}."
             )
         # TokenDispatcherWithMC2 carries global_bs (used below for the mc2_mask

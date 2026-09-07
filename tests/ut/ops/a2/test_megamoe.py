@@ -5,7 +5,9 @@ import torch
 
 from vllm_ascend import ascend_forward_context as afc
 from vllm_ascend.ascend_forward_context import MoECommType
+from vllm_ascend.ops.fused_moe import moe_comm_method as comm_module
 from vllm_ascend.ops.fused_moe.moe_comm_method import _append_cann_megamoe_dummy_tokens
+from vllm_ascend.quantization.quant_type import QuantType
 from vllm_ascend.utils import _warn_if_megamoe_shape_is_unfavourable, get_cann_megamoe_buffer_params
 
 
@@ -96,7 +98,7 @@ def test_dummy_cache_separates_rank_dtype_and_mask_contracts():
 
 def _make_a2_config(
     *,
-    quantize: str,
+    quantize: str | None,
     use_v2_model_runner: bool = False,
     hidden_size: int = 4096,
     moe_intermediate_size: int = 1536,
@@ -208,6 +210,90 @@ def test_a2_megamoe_intermediate_hidden_range(monkeypatch, moe_intermediate_size
         moe_intermediate_size=moe_intermediate_size,
     )
     assert afc.select_moe_comm_method(512, config) == expected
+
+
+@pytest.mark.parametrize("ep_world_size", [4, 8])
+@pytest.mark.parametrize("num_tokens", [32, 512, 4096, 4097])
+def test_a2_nonquantized_bf16_uses_megamoe_only_in_prefill_window(monkeypatch, ep_world_size, num_tokens):
+    _patch_a2_megamoe_env(monkeypatch)
+    monkeypatch.setattr(afc, "get_ep_group", lambda: SimpleNamespace(world_size=ep_world_size))
+    config = _make_a2_config(quantize=None, hidden_size=2048, moe_intermediate_size=512)
+    config.model_config.dtype = torch.bfloat16
+    config.parallel_config.world_size_across_dp = ep_world_size
+    expected = MoECommType.FUSED_MC2 if 512 <= num_tokens <= 4096 else MoECommType.ALLGATHER
+    assert afc.select_moe_comm_method(num_tokens, config) == expected
+
+
+@pytest.mark.parametrize(
+    ("dtype", "quantize", "quant_config", "quantization"),
+    [
+        (torch.float16, None, None, None),
+        (torch.float32, None, None, None),
+        (None, None, None, None),
+        (torch.bfloat16, "fp8", None, None),
+        (torch.bfloat16, None, SimpleNamespace(quant_description={}), None),
+        (torch.bfloat16, None, None, "fp8"),
+    ],
+)
+def test_a2_bf16_gate_does_not_admit_other_dtypes_or_unknown_quantization(
+    monkeypatch, dtype, quantize, quant_config, quantization
+):
+    _patch_a2_megamoe_env(monkeypatch)
+    config = _make_a2_config(quantize=quantize, hidden_size=2048, moe_intermediate_size=512)
+    config.model_config.dtype = dtype
+    config.model_config.quantization = quantization
+    config.quant_config = quant_config
+    assert afc.select_moe_comm_method(512, config) == MoECommType.ALLGATHER
+
+
+def test_a2_nonquantized_bf16_off_stays_on_allgather(monkeypatch):
+    _patch_a2_megamoe_env(monkeypatch)
+    monkeypatch.setattr(
+        afc,
+        "get_ascend_config",
+        lambda: SimpleNamespace(enable_fused_mc2=0, mega_moe_min_tokens=512),
+    )
+    config = _make_a2_config(quantize=None, hidden_size=2048, moe_intermediate_size=512)
+    config.model_config.dtype = torch.bfloat16
+    assert afc.select_moe_comm_method(512, config) == MoECommType.ALLGATHER
+
+
+def test_a2_bf16_operator_call_keeps_quantization_disabled(monkeypatch):
+    monkeypatch.setattr(comm_module, "_is_a2_megamoe_enabled", lambda _: True)
+    monkeypatch.setattr(comm_module, "get_ascend_config", lambda: SimpleNamespace())
+    impl = object.__new__(comm_module.FusedMC2CommImpl)
+    impl.token_dispatcher = object.__new__(comm_module.TokenDispatcherWithMC2)
+    impl.token_dispatcher.global_bs = 0
+    impl.token_dispatcher.ep_rank_id = 0
+    impl.token_dispatcher.ep_world_size = 4
+    impl.moe_config = SimpleNamespace(num_experts=8)
+    impl.swiglu_limit = 0
+    impl._cann_megamoe_dummy_cache = {}
+    impl.mega_moe_symm_buffer = SimpleNamespace()
+    weight = torch.ones((4, 4), dtype=torch.bfloat16)
+    x = torch.ones((2, 4), dtype=torch.bfloat16)
+    inp = SimpleNamespace(
+        hidden_states=x,
+        topk_ids=torch.tensor([[0, 1], [2, 3]], dtype=torch.int32),
+        topk_weights=torch.full((2, 2), 0.5),
+        quant=SimpleNamespace(quant_type=QuantType.NONE),
+        routing=SimpleNamespace(mc2_mask=None),
+        weights=SimpleNamespace(
+            w1=[weight], w2=[weight], w1_scale=None, w2_scale=None, w1_scale_bias=None, w2_scale_bias=None
+        ),
+    )
+    calls = []
+
+    def fake_mega_moe(hidden, ids, probs, w1, w2, sym, **kwargs):
+        calls.append(kwargs)
+        assert hidden.dtype == w1[0].dtype == w2[0].dtype == torch.bfloat16
+        assert sym.dispatch_quant_mode == 0 and sym.dispatch_quant_out_dtype is None
+        assert all(kwargs[k] is None for k in ("l1_weights_sf", "l2_weights_sf", "weight1_type", "weight2_type"))
+        return hidden.clone(), torch.zeros(2, dtype=torch.int32)
+
+    impl.mega_moe = fake_mega_moe
+    output, _ = impl._apply_cann_mega_moe(inp)
+    assert len(calls) == 1 and torch.equal(output, x)
 
 
 @pytest.mark.parametrize(
