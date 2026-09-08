@@ -55,6 +55,9 @@ CHECK_IMPORTS = {
             # is also designed to run in minimal environments without
             # third-party packages (see its module docstring).
             "docs/source/conf.py",
+            # Preserve the pinned SGLang scorer's standard-library regex
+            # behavior when comparing accuracy across inference engines.
+            "benchmarks/uno/sglang_math_grader.py",
         },
     ),
     "triton": ForbiddenImport(
