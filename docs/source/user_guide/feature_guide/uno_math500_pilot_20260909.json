@@ -1,0 +1,554 @@
+{
+  "schema_version": 1,
+  "date_local": "2026-09-09",
+  "timezone": "Asia/Shanghai",
+  "branch": "codex/uno-sglang-alignment",
+  "source_commit": "55873225c2dbe001b24b1e6089213e021bbde986",
+  "hardware": "Ascend 910B4-1 physical device 0",
+  "cases": {
+    "ar_c1": {
+      "mode": "ar",
+      "benchmark": "math500",
+      "config": {
+        "model": "/models/uno-qwen3-8B",
+        "tokenizer": "/models/uno-qwen3-8B",
+        "dtype": "bfloat16",
+        "seed": 42,
+        "tensor_parallel_size": 1,
+        "max_model_len": 40960,
+        "max_num_seqs": 1,
+        "max_num_batched_tokens": 8192,
+        "gpu_memory_utilization": 0.8,
+        "enable_prefix_caching": false,
+        "generation_config": "vllm",
+        "disable_log_stats": false,
+        "compilation_config": {
+          "cudagraph_mode": "FULL_DECODE_ONLY",
+          "cudagraph_capture_sizes": [
+            1
+          ]
+        }
+      },
+      "resolved_execution": {
+        "async_scheduling": true,
+        "enable_prefix_caching": false,
+        "cache_dtype": "auto"
+      },
+      "sampling": {
+        "temperature": 1.0,
+        "top_k": 50,
+        "top_p": 0.95,
+        "max_tokens": 32768
+      },
+      "requests": 8,
+      "dataset": {
+        "benchmark": "math500",
+        "repo": "HuggingFaceH4/MATH-500",
+        "revision": "6e4ed1a2a79af7d8630a6b768ec859cb5af4d3be",
+        "download_url": "https://hf-mirror.com/datasets/HuggingFaceH4/MATH-500/resolve/6e4ed1a2a79af7d8630a6b768ec859cb5af4d3be/test.jsonl",
+        "raw_sha256": "35dc41080a3680858b27fa7e0533d2d547825316fc5dafe5d316f4ccc5a06132",
+        "prepared_sha256": "377a91673e857bd3af9b7303075e024bf5d9392154d92a3cd62f6d2b37616660",
+        "rows": 500,
+        "git_blob_oid": "2376b9a194b46c0790e197c91b7249e5f88ac09b"
+      },
+      "source_commit": "55873225c2dbe001b24b1e6089213e021bbde986",
+      "runtime": {
+        "Id": "ccc0fd4f5463744b61c431383ebb79bc7e4cad788a2f99cdbfa1dc868b6d0710",
+        "Image": "sha256:b936552e3c49668f1c9be8777d3d879e0bb6b2dc41f6417dedea84ed8f68eb9f",
+        "Name": "/uno-align-v10-card0"
+      },
+      "prompt_ids_sha256": "2b5879f045881841fba7ce8a3fe783bb3a371c5d875678b41ff93602860f518b",
+      "versions": {
+        "vllm": "0.27.1+empty",
+        "torch": "2.10.0+cpu",
+        "torch-npu": "2.10.0.post4"
+      },
+      "elapsed_seconds": 461.32355810701847,
+      "output_tokens": 26794,
+      "tokens_per_second": 58.080710445279905,
+      "tokens_per_forward": 1.0,
+      "spec_verify_request_iterations": 0,
+      "accuracy": {
+        "grader": "math",
+        "num_rows": 8,
+        "num_problems": 8,
+        "samples_per_problem": 1,
+        "num_correct": 8,
+        "accuracy": 1.0,
+        "avg_at_1": 1.0,
+        "pass_at_1": 1.0,
+        "num_correct_at_1": 8
+      },
+      "grader_versions": {
+        "math-verify": "0.9.0",
+        "sympy": "1.14.0"
+      },
+      "grading_status": "complete",
+      "limit": 8,
+      "max_tokens": 32768,
+      "num_samples": 1,
+      "full_dataset": false,
+      "timing": "offline generate; startup excluded; no request warmup",
+      "sampling_semantics": "Ascend joint top-k/top-p, identical for AR and UNO",
+      "tpf_scope": "aggregate useful outputs / (2 * request verification iterations); not a speedup",
+      "truncated_requests": 0,
+      "all_output_token_ids_match_v6": true
+    },
+    "tree_c1": {
+      "mode": "tree",
+      "benchmark": "math500",
+      "config": {
+        "model": "/models/uno-qwen3-8B",
+        "tokenizer": "/models/uno-qwen3-8B",
+        "dtype": "bfloat16",
+        "seed": 42,
+        "tensor_parallel_size": 1,
+        "max_model_len": 40960,
+        "max_num_seqs": 1,
+        "max_num_batched_tokens": 8192,
+        "gpu_memory_utilization": 0.8,
+        "enable_prefix_caching": false,
+        "generation_config": "vllm",
+        "disable_log_stats": false,
+        "compilation_config": {
+          "cudagraph_mode": "FULL_DECODE_ONLY",
+          "cudagraph_capture_sizes": [
+            33
+          ]
+        },
+        "speculative_config": {
+          "method": "uno",
+          "model": "/models/uno-qwen3-8B/adapter",
+          "num_speculative_tokens": 32
+        },
+        "additional_config": {
+          "uno_tree": {
+            "draft_width": 16,
+            "candidate_top_k": 32
+          }
+        }
+      },
+      "resolved_execution": {
+        "async_scheduling": false,
+        "enable_prefix_caching": false,
+        "cache_dtype": "auto"
+      },
+      "sampling": {
+        "temperature": 1.0,
+        "top_k": 50,
+        "top_p": 0.95,
+        "max_tokens": 32768
+      },
+      "requests": 8,
+      "dataset": {
+        "benchmark": "math500",
+        "repo": "HuggingFaceH4/MATH-500",
+        "revision": "6e4ed1a2a79af7d8630a6b768ec859cb5af4d3be",
+        "download_url": "https://hf-mirror.com/datasets/HuggingFaceH4/MATH-500/resolve/6e4ed1a2a79af7d8630a6b768ec859cb5af4d3be/test.jsonl",
+        "raw_sha256": "35dc41080a3680858b27fa7e0533d2d547825316fc5dafe5d316f4ccc5a06132",
+        "prepared_sha256": "377a91673e857bd3af9b7303075e024bf5d9392154d92a3cd62f6d2b37616660",
+        "rows": 500,
+        "git_blob_oid": "2376b9a194b46c0790e197c91b7249e5f88ac09b"
+      },
+      "source_commit": "55873225c2dbe001b24b1e6089213e021bbde986",
+      "runtime": {
+        "Id": "ccc0fd4f5463744b61c431383ebb79bc7e4cad788a2f99cdbfa1dc868b6d0710",
+        "Image": "sha256:b936552e3c49668f1c9be8777d3d879e0bb6b2dc41f6417dedea84ed8f68eb9f",
+        "Name": "/uno-align-v10-card0"
+      },
+      "prompt_ids_sha256": "2b5879f045881841fba7ce8a3fe783bb3a371c5d875678b41ff93602860f518b",
+      "versions": {
+        "vllm": "0.27.1+empty",
+        "torch": "2.10.0+cpu",
+        "torch-npu": "2.10.0.post4"
+      },
+      "elapsed_seconds": 323.4653366971761,
+      "output_tokens": 31261,
+      "tokens_per_second": 96.64404946507801,
+      "tokens_per_forward": 3.464206560283688,
+      "spec_verify_request_iterations": 4512,
+      "accuracy": {
+        "grader": "math",
+        "num_rows": 8,
+        "num_problems": 8,
+        "samples_per_problem": 1,
+        "num_correct": 8,
+        "accuracy": 1.0,
+        "avg_at_1": 1.0,
+        "pass_at_1": 1.0,
+        "num_correct_at_1": 8
+      },
+      "grader_versions": {
+        "math-verify": "0.9.0",
+        "sympy": "1.14.0"
+      },
+      "grading_status": "complete",
+      "limit": 8,
+      "max_tokens": 32768,
+      "num_samples": 1,
+      "full_dataset": false,
+      "timing": "offline generate; startup excluded; no request warmup",
+      "sampling_semantics": "Ascend joint top-k/top-p, identical for AR and UNO",
+      "tpf_scope": "aggregate useful outputs / (2 * request verification iterations); not a speedup",
+      "truncated_requests": 0,
+      "all_output_token_ids_match_v6": true
+    },
+    "ar_c64": {
+      "mode": "ar",
+      "benchmark": "math500",
+      "config": {
+        "model": "/models/uno-qwen3-8B",
+        "tokenizer": "/models/uno-qwen3-8B",
+        "dtype": "bfloat16",
+        "seed": 42,
+        "tensor_parallel_size": 1,
+        "max_model_len": 40960,
+        "max_num_seqs": 64,
+        "max_num_batched_tokens": 8192,
+        "gpu_memory_utilization": 0.8,
+        "enable_prefix_caching": false,
+        "generation_config": "vllm",
+        "disable_log_stats": false,
+        "compilation_config": {
+          "cudagraph_mode": "FULL_DECODE_ONLY",
+          "cudagraph_capture_sizes": [
+            1,
+            2,
+            4,
+            8,
+            16,
+            32,
+            64
+          ]
+        }
+      },
+      "resolved_execution": {
+        "async_scheduling": true,
+        "enable_prefix_caching": false,
+        "cache_dtype": "auto"
+      },
+      "sampling": {
+        "temperature": 1.0,
+        "top_k": 50,
+        "top_p": 0.95,
+        "max_tokens": 32768
+      },
+      "requests": 64,
+      "dataset": {
+        "benchmark": "math500",
+        "repo": "HuggingFaceH4/MATH-500",
+        "revision": "6e4ed1a2a79af7d8630a6b768ec859cb5af4d3be",
+        "download_url": "https://hf-mirror.com/datasets/HuggingFaceH4/MATH-500/resolve/6e4ed1a2a79af7d8630a6b768ec859cb5af4d3be/test.jsonl",
+        "raw_sha256": "35dc41080a3680858b27fa7e0533d2d547825316fc5dafe5d316f4ccc5a06132",
+        "prepared_sha256": "377a91673e857bd3af9b7303075e024bf5d9392154d92a3cd62f6d2b37616660",
+        "rows": 500,
+        "git_blob_oid": "2376b9a194b46c0790e197c91b7249e5f88ac09b"
+      },
+      "source_commit": "55873225c2dbe001b24b1e6089213e021bbde986",
+      "runtime": {
+        "Id": "ccc0fd4f5463744b61c431383ebb79bc7e4cad788a2f99cdbfa1dc868b6d0710",
+        "Image": "sha256:b936552e3c49668f1c9be8777d3d879e0bb6b2dc41f6417dedea84ed8f68eb9f",
+        "Name": "/uno-align-v10-card0"
+      },
+      "prompt_ids_sha256": "336b8cec581a0a2754abee75d111de32fcef220fcaf7c5bb8a5312688877fd4a",
+      "versions": {
+        "vllm": "0.27.1+empty",
+        "torch": "2.10.0+cpu",
+        "torch-npu": "2.10.0.post4"
+      },
+      "elapsed_seconds": 935.0802567503415,
+      "output_tokens": 320660,
+      "tokens_per_second": 342.9224365343578,
+      "tokens_per_forward": 1.0,
+      "spec_verify_request_iterations": 0,
+      "accuracy": {
+        "grader": "math",
+        "num_rows": 64,
+        "num_problems": 64,
+        "samples_per_problem": 1,
+        "num_correct": 60,
+        "accuracy": 0.9375,
+        "avg_at_1": 0.9375,
+        "pass_at_1": 0.9375,
+        "num_correct_at_1": 60
+      },
+      "grader_versions": {
+        "math-verify": "0.9.0",
+        "sympy": "1.14.0"
+      },
+      "grading_status": "complete",
+      "limit": 64,
+      "max_tokens": 32768,
+      "num_samples": 1,
+      "full_dataset": false,
+      "timing": "offline generate; startup excluded; no request warmup",
+      "sampling_semantics": "Ascend joint top-k/top-p, identical for AR and UNO",
+      "tpf_scope": "aggregate useful outputs / (2 * request verification iterations); not a speedup",
+      "truncated_requests": 1,
+      "all_output_token_ids_match_v6": true
+    },
+    "linear_c64": {
+      "mode": "linear",
+      "benchmark": "math500",
+      "config": {
+        "model": "/models/uno-qwen3-8B",
+        "tokenizer": "/models/uno-qwen3-8B",
+        "dtype": "bfloat16",
+        "seed": 42,
+        "tensor_parallel_size": 1,
+        "max_model_len": 40960,
+        "max_num_seqs": 64,
+        "max_num_batched_tokens": 8192,
+        "gpu_memory_utilization": 0.8,
+        "enable_prefix_caching": false,
+        "generation_config": "vllm",
+        "disable_log_stats": false,
+        "compilation_config": {
+          "cudagraph_mode": "FULL_DECODE_ONLY",
+          "cudagraph_capture_sizes": [
+            9,
+            18,
+            36,
+            72,
+            144,
+            288,
+            576
+          ]
+        },
+        "speculative_config": {
+          "method": "uno",
+          "model": "/models/uno-qwen3-8B/adapter",
+          "num_speculative_tokens": 8
+        }
+      },
+      "resolved_execution": {
+        "async_scheduling": false,
+        "enable_prefix_caching": false,
+        "cache_dtype": "auto"
+      },
+      "sampling": {
+        "temperature": 1.0,
+        "top_k": 50,
+        "top_p": 0.95,
+        "max_tokens": 32768
+      },
+      "requests": 64,
+      "dataset": {
+        "benchmark": "math500",
+        "repo": "HuggingFaceH4/MATH-500",
+        "revision": "6e4ed1a2a79af7d8630a6b768ec859cb5af4d3be",
+        "download_url": "https://hf-mirror.com/datasets/HuggingFaceH4/MATH-500/resolve/6e4ed1a2a79af7d8630a6b768ec859cb5af4d3be/test.jsonl",
+        "raw_sha256": "35dc41080a3680858b27fa7e0533d2d547825316fc5dafe5d316f4ccc5a06132",
+        "prepared_sha256": "377a91673e857bd3af9b7303075e024bf5d9392154d92a3cd62f6d2b37616660",
+        "rows": 500,
+        "git_blob_oid": "2376b9a194b46c0790e197c91b7249e5f88ac09b"
+      },
+      "source_commit": "55873225c2dbe001b24b1e6089213e021bbde986",
+      "runtime": {
+        "Id": "ccc0fd4f5463744b61c431383ebb79bc7e4cad788a2f99cdbfa1dc868b6d0710",
+        "Image": "sha256:b936552e3c49668f1c9be8777d3d879e0bb6b2dc41f6417dedea84ed8f68eb9f",
+        "Name": "/uno-align-v10-card0"
+      },
+      "prompt_ids_sha256": "336b8cec581a0a2754abee75d111de32fcef220fcaf7c5bb8a5312688877fd4a",
+      "versions": {
+        "vllm": "0.27.1+empty",
+        "torch": "2.10.0+cpu",
+        "torch-npu": "2.10.0.post4"
+      },
+      "elapsed_seconds": 564.4992959299125,
+      "output_tokens": 320541,
+      "tokens_per_second": 567.8324177038442,
+      "tokens_per_forward": 2.6938482225397093,
+      "spec_verify_request_iterations": 59495,
+      "accuracy": {
+        "grader": "math",
+        "num_rows": 64,
+        "num_problems": 64,
+        "samples_per_problem": 1,
+        "num_correct": 61,
+        "accuracy": 0.953125,
+        "avg_at_1": 0.953125,
+        "pass_at_1": 0.953125,
+        "num_correct_at_1": 61
+      },
+      "grader_versions": {
+        "math-verify": "0.9.0",
+        "sympy": "1.14.0"
+      },
+      "grading_status": "complete",
+      "limit": 64,
+      "max_tokens": 32768,
+      "num_samples": 1,
+      "full_dataset": false,
+      "timing": "offline generate; startup excluded; no request warmup",
+      "sampling_semantics": "Ascend joint top-k/top-p, identical for AR and UNO",
+      "tpf_scope": "aggregate useful outputs / (2 * request verification iterations); not a speedup",
+      "truncated_requests": 0,
+      "all_output_token_ids_match_v6": true
+    }
+  },
+  "comparisons": [
+    {
+      "uno": "tree",
+      "concurrency": 1,
+      "speedup": 1.663961214044207,
+      "paired": true,
+      "pilot": true
+    },
+    {
+      "uno": "linear",
+      "concurrency": 64,
+      "speedup": 1.6558625426859532,
+      "paired": true,
+      "pilot": true
+    }
+  ],
+  "model_provenance": {
+    "timestamp": "2026-09-08T17:35:55.854400+00:00",
+    "root": "/models/uno-qwen3-8B",
+    "bundle_repo": "s-sahoo/uno-qwen3-8B",
+    "bundle_revision": "8819e09ac901e7290d8d89d62c98b9f756c602fe",
+    "files": [
+      {
+        "path": "model-00001-of-00005.safetensors",
+        "sha256": "31d6a825ae35f11fb85b195b4c42c146c051e446433125a215336abdf95cbf5f",
+        "bytes": 3996250744
+      },
+      {
+        "path": "model-00002-of-00005.safetensors",
+        "sha256": "5991236cea6fe21f3d43cab0f0e84448734fbbe0789816202989f2ddc9d18282",
+        "bytes": 3993160032
+      },
+      {
+        "path": "model-00003-of-00005.safetensors",
+        "sha256": "c5185c4794be2d8a9784d5753c9922db38df478ce11f9ed0b415b7304d896836",
+        "bytes": 3959604768
+      },
+      {
+        "path": "model-00004-of-00005.safetensors",
+        "sha256": "b5ee7de71fbf17db3d5704e0c8f2bc7d005ca9e1d7ca2aeb19827b0cfcaa917a",
+        "bytes": 3187841392
+      },
+      {
+        "path": "model-00005-of-00005.safetensors",
+        "sha256": "20c2d6366ab85c90786ccdd829cd2b9e7d30ef3b2ebbb998280e7e4014b542ff",
+        "bytes": 1244659840
+      },
+      {
+        "path": "adapter/adapter_model.safetensors",
+        "sha256": "f22fbbc857bce91c6c3a29842932efb355a799c9ab2f1a061ee7917be2f44eb2",
+        "bytes": 698420736
+      },
+      {
+        "path": "config.json",
+        "sha256": "a7e280c9cf3ab16a5f2e98d8f58b172f4cdd7972fd195af8c78dae9065c699bd",
+        "bytes": 1022
+      },
+      {
+        "path": "tokenizer.json",
+        "sha256": "c0382117ea329cdf097041132f6d735924b697924d6f6fc3945713e96ce87539",
+        "bytes": 7031645
+      },
+      {
+        "path": "tokenizer_config.json",
+        "sha256": "96d86b69328269b178513cfee56d66d90f26a93a3ee8c2444dfbae4df7d07403",
+        "bytes": 10005
+      },
+      {
+        "path": "chat_template.jinja",
+        "sha256": "87a2728cb8dc9fe424d624542f6060ec05a1d285ebbec578bb078900e33396b5",
+        "bytes": 4116
+      },
+      {
+        "path": "vocab.json",
+        "sha256": "ca10d7e9fb3ed18575dd1e277a2579c16d108e32f27439684afa0e10b1440910",
+        "bytes": 2776833
+      },
+      {
+        "path": "merges.txt",
+        "sha256": "8831e4f1a044471340f7c0a83d7bd71306a5b867e95fd870f74d0c5308a904d5",
+        "bytes": 1671853
+      },
+      {
+        "path": "model.safetensors.index.json",
+        "sha256": "f9fdbcb91c23971c13ec5d5f2573d2349e8f61f2f049371ec699281748fdb1bc",
+        "bytes": 32878
+      },
+      {
+        "path": "bundle_manifest.json",
+        "sha256": "90371425ccafce98ffbaed7165adc01e9aae4964c8b0290c575e8872f5edb629",
+        "bytes": 581
+      },
+      {
+        "path": "adapter/adapter_config.json",
+        "sha256": "4a6117b0d944b96a46dbde6fcdb5469bb0b4a4ff2db102ee35eebd9bfffef9b3",
+        "bytes": 856
+      }
+    ],
+    "bundle": {
+      "schema_version": 1,
+      "layout": {
+        "base": ".",
+        "adapter": "adapter"
+      },
+      "base": {
+        "repo_id": "IFM/uno-qwen3-8b-base",
+        "revision": "4ccfeed3fba497e40495fe6dc5c15c89f7f1e2cd",
+        "architecture": "SDARForCausalLM",
+        "weight_dtype": "bfloat16",
+        "weight_index": "model.safetensors.index.json",
+        "weight_shards": 5
+      },
+      "adapter": {
+        "repo_id": "s-sahoo/uno-qwen3-8B",
+        "revision": "79536cf8c70aa48b9badc2532ffef208947463e3",
+        "peft_type": "LORA",
+        "rank": 128,
+        "alpha": 2048,
+        "weights": "adapter/adapter_model.safetensors"
+      }
+    }
+  },
+  "tokenizer_comparison": {
+    "official_repo": "Qwen/Qwen3-8B",
+    "revision": "b968826d9c46dd6066d109eabc6255188de91218",
+    "local_files_only": true,
+    "math500_prompt_hashes": {
+      "8": "2b5879f045881841fba7ce8a3fe783bb3a371c5d875678b41ff93602860f518b",
+      "64": "336b8cec581a0a2754abee75d111de32fcef220fcaf7c5bb8a5312688877fd4a",
+      "500": "744e230b9960ae69dd12cf682514f56621007235f4eb92795262f6c12b236097"
+    },
+    "dataset_sha256": "377a91673e857bd3af9b7303075e024bf5d9392154d92a3cd62f6d2b37616660",
+    "matched_existing_benchmark_limits": [
+      8,
+      64
+    ],
+    "official_cache_files": [
+      {
+        "path": "config.json",
+        "sha256": "f7c4eadfbbf522470667b797a3c89be2524832d2d599797248dc304fff447c30"
+      },
+      {
+        "path": "merges.txt",
+        "sha256": "8831e4f1a044471340f7c0a83d7bd71306a5b867e95fd870f74d0c5308a904d5"
+      },
+      {
+        "path": "tokenizer.json",
+        "sha256": "aeb13307a71acd8fe81861d94ad54ab689df773318809eed3cbe794b4492dae4"
+      },
+      {
+        "path": "tokenizer_config.json",
+        "sha256": "d5d09f07b48c3086c508b30d1c9114bd1189145b74e982a265350c923acd8101"
+      },
+      {
+        "path": "vocab.json",
+        "sha256": "ca10d7e9fb3ed18575dd1e277a2579c16d108e32f27439684afa0e10b1440910"
+      }
+    ]
+  },
+  "limitations": [
+    "MATH500 first8 C1 and first64 C64 subsets; not full500 results.",
+    "SGLang reference uses H200 and top-k-first top-p; local AR and UNO use Ascend joint top-k/top-p.",
+    "Startup and graph capture excluded; complete generation wall time includes prefill; no extra request warmup."
+  ]
+}
