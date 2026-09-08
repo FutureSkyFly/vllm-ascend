@@ -1283,7 +1283,14 @@ class AscendSpecDecodeBaseProposer(SpecDecodeBaseProposer):
                         "are in draft-vocab space and incompatible with target-space "
                         "rejection sampling. Falling back to greedy."
                     )
-                raw_logits = self.model.compute_logits(sample_hidden_states)
+                # With vocab remapping, run the Markov loop in draft space:
+                # compute_draft_logits skips the d2t scatter so the draft-vocab
+                # Markov bias can be added directly (qwen3_dspark documents this
+                # contract); sampled ids are remapped to target vocab below.
+                if dspark_has_vocab_mapping:
+                    raw_logits = self.model.compute_draft_logits(sample_hidden_states)
+                else:
+                    raw_logits = self.model.compute_logits(sample_hidden_states)
                 logits = raw_logits.view(-1, self.num_speculative_tokens, raw_logits.shape[-1])
                 num_blk = logits.shape[0]
                 draft_token_ids = self._dspark_draft_buffer[:num_blk]
@@ -1302,7 +1309,12 @@ class AscendSpecDecodeBaseProposer(SpecDecodeBaseProposer):
                         if probs is not None:
                             dspark_probs_list.append(probs)
                     else:
-                        draft_token_ids[:, idx + 1].copy_(logits[:, idx].argmax(dim=-1))
+                        next_ids = logits[:, idx].argmax(dim=-1)
+                        if dspark_has_vocab_mapping:
+                            # markov_embed and draft_token_ids stay in target
+                            # vocab; only the logits/argmax are in draft vocab.
+                            next_ids = self.model.map_draft_to_target(next_ids)
+                        draft_token_ids[:, idx + 1].copy_(next_ids)
                 if use_probabilistic and dspark_probs_list:
                     # Stack [K x [num_blk, V]] -> [num_blk, K, V] ->
                     # [num_blk * K, V] to match early_exit view logic.
