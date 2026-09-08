@@ -1,5 +1,7 @@
 # UNO Linear / Tree：SGLang 性能口径对齐
 
+后续 Tree 构树优化及新一轮同卡测量见 [2026-09-09 Tree 性能记录](uno_tree_performance_20260909.md)：源码 `ecb867217a506895c36ca3f86ab4d03a4697c105`，Tree/AR 为 1.7297×，Tree 自身吞吐提高 3.19%。下文保留前一轮的实现和测量基线。
+
 本页记录 2026-09-08 至 09-09 的 Ascend 910B 单卡实现与验证。开发分支为 `codex/uno-sglang-alignment`，基于已发布的 `uno-spec-decode` 分支 `eb834d8336871404554e6e676ca5256534d967ca`。旧版草稿图与 eager 草稿的 4.38× 对照见 [原复现记录](uno_reproduction.md)；该数字不是相对 AR 的收益。
 
 本轮同卡 MATH500 pilot：Linear C64 / AR C64 为 **1.6559×**，Tree C1 / AR C1 为 **1.6640×**，均为 FULL_DECODE_ONLY。分别只测前 64 / 8 题，完整输出与旧版对应模式一致；尚不能声称全量性能与 SGLang 对齐。[机器可读结果](uno_math500_pilot_20260909.json) 保存完整参数、配对摘要、源码、容器、模型哈希和 tokenizer 对齐证据。
