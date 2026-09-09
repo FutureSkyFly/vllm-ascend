@@ -1,5 +1,7 @@
 # UNO Tree FULL_DECODE_ONLY：构树优化与配对复现
 
+后续已验证的 FP32 LoRA 投影合并、最新保留 commit 和撤回实验见[后续复现记录](uno_tree_lora_20260909.md)。本页保留构树优化当轮的历史证据。
+
 2026-09-09，分支 `codex/uno-tree-performance`，实测源码 commit **`ecb867217a506895c36ca3f86ab4d03a4697c105`**。在 Ascend 910B 单卡、MATH500 前 8 题、并发 1 上，Tree 达到 **99.7272 token/s**，相对本轮同卡 AR 的 **57.6566 token/s** 为 **1.7297×（+72.97%）**。Tree 自身相对上一版提高 **3.19%**。本轮是子集实验，尚未达到或证明 SGLang 全量性能对齐。
 
 [机器可读结果](uno_tree_performance_20260909.json) 包含两组完整摘要、输入哈希、输出一致性、旧版对照、负结果和验证记录。此前 Linear C64 与 Tree C1 的实现和测量见 [原对齐记录](uno_sglang_alignment.md)。

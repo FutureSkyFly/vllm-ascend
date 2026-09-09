@@ -1,0 +1,525 @@
+{
+  "schema_version": 1,
+  "date": "2026-09-09",
+  "branch": "codex/uno-tree-performance",
+  "repository": "https://github.com/Liuchenbing-2026/vllm-ascend",
+  "published_code_commit": "001edc61ec821dde195eaafe39a7fa8befcfc510",
+  "measured_source_commit": "5e00bd1f2b8ce769500bc5ea744666b4346b990d",
+  "identical_git_tree": "93aee615405e20dd6526791ffd76c6c3ce3519fa",
+  "classification": "original local performance optimization",
+  "paired_results": {
+    "source_commit": "5e00bd1f2b8ce769500bc5ea744666b4346b990d",
+    "summaries": {
+      "ar": {
+        "mode": "ar",
+        "benchmark": "math500",
+        "config": {
+          "model": "/models/uno-qwen3-8B",
+          "tokenizer": "/models/uno-qwen3-8B",
+          "dtype": "bfloat16",
+          "seed": 42,
+          "tensor_parallel_size": 1,
+          "max_model_len": 40960,
+          "max_num_seqs": 1,
+          "max_num_batched_tokens": 8192,
+          "gpu_memory_utilization": 0.8,
+          "enable_prefix_caching": false,
+          "generation_config": "vllm",
+          "disable_log_stats": false,
+          "compilation_config": {
+            "cudagraph_mode": "FULL_DECODE_ONLY",
+            "cudagraph_capture_sizes": [
+              1
+            ]
+          }
+        },
+        "resolved_execution": {
+          "async_scheduling": true,
+          "enable_prefix_caching": false,
+          "cache_dtype": "auto"
+        },
+        "sampling": {
+          "temperature": 1.0,
+          "top_k": 50,
+          "top_p": 0.95,
+          "max_tokens": 32768
+        },
+        "requests": 8,
+        "dataset": {
+          "benchmark": "math500",
+          "repo": "HuggingFaceH4/MATH-500",
+          "revision": "6e4ed1a2a79af7d8630a6b768ec859cb5af4d3be",
+          "download_url": "https://hf-mirror.com/datasets/HuggingFaceH4/MATH-500/resolve/6e4ed1a2a79af7d8630a6b768ec859cb5af4d3be/test.jsonl",
+          "raw_sha256": "35dc41080a3680858b27fa7e0533d2d547825316fc5dafe5d316f4ccc5a06132",
+          "prepared_sha256": "377a91673e857bd3af9b7303075e024bf5d9392154d92a3cd62f6d2b37616660",
+          "rows": 500,
+          "git_blob_oid": "2376b9a194b46c0790e197c91b7249e5f88ac09b"
+        },
+        "source_commit": "5e00bd1f2b8ce769500bc5ea744666b4346b990d",
+        "runtime": {
+          "Id": "d6d03b198bb2838bf5af173a472dfe5db728c319d83a8fb0709ab28e7fc68776",
+          "Image": "sha256:b936552e3c49668f1c9be8777d3d879e0bb6b2dc41f6417dedea84ed8f68eb9f",
+          "Name": "/uno-align-v16"
+        },
+        "argv": [
+          "/vllm-workspace/vllm-ascend/benchmarks/uno/run_math_eval.py",
+          "--model-path",
+          "/models/uno-qwen3-8B",
+          "--mode",
+          "ar",
+          "--benchmark",
+          "math500",
+          "--data-root",
+          "/alignment/math-assets/math-data",
+          "--data-manifest",
+          "/alignment/math-assets/math-data-manifest.json",
+          "--runtime-record",
+          "/alignment/v16/container.json",
+          "--max-running-requests",
+          "1",
+          "--limit",
+          "8",
+          "--output-dir",
+          "/alignment/v16/math500-ar-c1-8"
+        ],
+        "prompt_ids_sha256": "2b5879f045881841fba7ce8a3fe783bb3a371c5d875678b41ff93602860f518b",
+        "versions": {
+          "vllm": "0.27.1+empty",
+          "torch": "2.10.0+cpu",
+          "torch-npu": "2.10.0.post4"
+        },
+        "elapsed_seconds": 457.21394438901916,
+        "output_tokens": 26794,
+        "tokens_per_second": 58.602762074120825,
+        "tokens_per_second_per_request": 58.602762074120825,
+        "tokens_per_forward": 1.0,
+        "spec_verify_request_iterations": 0,
+        "counters": {
+          "vllm:estimated_flops_per_gpu": 0,
+          "vllm:estimated_read_bytes_per_gpu": 0,
+          "vllm:estimated_write_bytes_per_gpu": 0,
+          "vllm:num_requests_running": 0.0,
+          "vllm:num_requests_waiting": 0.0,
+          "vllm:num_requests_waiting_by_reason": 0.0,
+          "vllm:engine_sleep_state": 0.0,
+          "vllm:kv_cache_usage_perc": 0.0,
+          "vllm:prefix_cache_queries": 0,
+          "vllm:prefix_cache_hits": 0,
+          "vllm:external_prefix_cache_queries": 0,
+          "vllm:external_prefix_cache_hits": 0,
+          "vllm:mm_cache_queries": 0,
+          "vllm:mm_cache_hits": 0,
+          "vllm:num_preemptions": 0,
+          "vllm:prompt_tokens": 899,
+          "vllm:prompt_tokens_by_source": 0,
+          "vllm:prompt_tokens_cached": 0,
+          "vllm:generation_tokens": 26794,
+          "vllm:request_success": 0,
+          "vllm:cache_config_info": 1.0
+        },
+        "grading_status": "complete",
+        "limit": 8,
+        "max_tokens": 32768,
+        "num_samples": 1,
+        "full_dataset": false,
+        "timing": "offline generate; startup excluded; no request warmup",
+        "sampling_semantics": "Ascend joint top-k/top-p, identical for AR and UNO",
+        "tpf_scope": "aggregate useful outputs / (2 * request verification iterations); not a speedup",
+        "accuracy": {
+          "grader": "math",
+          "num_rows": 8,
+          "num_problems": 8,
+          "samples_per_problem": 1,
+          "num_correct": 8,
+          "accuracy": 1.0,
+          "avg_at_1": 1.0,
+          "pass_at_1": 1.0,
+          "num_correct_at_1": 8
+        },
+        "grader_versions": {
+          "math-verify": "0.9.0",
+          "sympy": "1.14.0"
+        }
+      },
+      "tree": {
+        "mode": "tree",
+        "benchmark": "math500",
+        "config": {
+          "model": "/models/uno-qwen3-8B",
+          "tokenizer": "/models/uno-qwen3-8B",
+          "dtype": "bfloat16",
+          "seed": 42,
+          "tensor_parallel_size": 1,
+          "max_model_len": 40960,
+          "max_num_seqs": 1,
+          "max_num_batched_tokens": 8192,
+          "gpu_memory_utilization": 0.8,
+          "enable_prefix_caching": false,
+          "generation_config": "vllm",
+          "disable_log_stats": false,
+          "compilation_config": {
+            "cudagraph_mode": "FULL_DECODE_ONLY",
+            "cudagraph_capture_sizes": [
+              33
+            ]
+          },
+          "speculative_config": {
+            "method": "uno",
+            "model": "/models/uno-qwen3-8B/adapter",
+            "num_speculative_tokens": 32
+          },
+          "additional_config": {
+            "uno_tree": {
+              "draft_width": 16,
+              "candidate_top_k": 32
+            }
+          }
+        },
+        "resolved_execution": {
+          "async_scheduling": false,
+          "enable_prefix_caching": false,
+          "cache_dtype": "auto"
+        },
+        "sampling": {
+          "temperature": 1.0,
+          "top_k": 50,
+          "top_p": 0.95,
+          "max_tokens": 32768
+        },
+        "requests": 8,
+        "dataset": {
+          "benchmark": "math500",
+          "repo": "HuggingFaceH4/MATH-500",
+          "revision": "6e4ed1a2a79af7d8630a6b768ec859cb5af4d3be",
+          "download_url": "https://hf-mirror.com/datasets/HuggingFaceH4/MATH-500/resolve/6e4ed1a2a79af7d8630a6b768ec859cb5af4d3be/test.jsonl",
+          "raw_sha256": "35dc41080a3680858b27fa7e0533d2d547825316fc5dafe5d316f4ccc5a06132",
+          "prepared_sha256": "377a91673e857bd3af9b7303075e024bf5d9392154d92a3cd62f6d2b37616660",
+          "rows": 500,
+          "git_blob_oid": "2376b9a194b46c0790e197c91b7249e5f88ac09b"
+        },
+        "source_commit": "5e00bd1f2b8ce769500bc5ea744666b4346b990d",
+        "runtime": {
+          "Id": "d6d03b198bb2838bf5af173a472dfe5db728c319d83a8fb0709ab28e7fc68776",
+          "Image": "sha256:b936552e3c49668f1c9be8777d3d879e0bb6b2dc41f6417dedea84ed8f68eb9f",
+          "Name": "/uno-align-v16"
+        },
+        "argv": [
+          "/vllm-workspace/vllm-ascend/benchmarks/uno/run_math_eval.py",
+          "--model-path",
+          "/models/uno-qwen3-8B",
+          "--adapter-path",
+          "/models/uno-qwen3-8B/adapter",
+          "--mode",
+          "tree",
+          "--benchmark",
+          "math500",
+          "--data-root",
+          "/alignment/math-assets/math-data",
+          "--data-manifest",
+          "/alignment/math-assets/math-data-manifest.json",
+          "--runtime-record",
+          "/alignment/v16/container.json",
+          "--max-running-requests",
+          "1",
+          "--limit",
+          "8",
+          "--output-dir",
+          "/alignment/v16/math500-tree-c1-8"
+        ],
+        "prompt_ids_sha256": "2b5879f045881841fba7ce8a3fe783bb3a371c5d875678b41ff93602860f518b",
+        "versions": {
+          "vllm": "0.27.1+empty",
+          "torch": "2.10.0+cpu",
+          "torch-npu": "2.10.0.post4"
+        },
+        "elapsed_seconds": 279.76973932236433,
+        "output_tokens": 31261,
+        "tokens_per_second": 111.73831764549615,
+        "tokens_per_second_per_request": 111.73831764549615,
+        "tokens_per_forward": 3.464206560283688,
+        "spec_verify_request_iterations": 4512,
+        "counters": {
+          "vllm:spec_decode_num_drafts": 4512,
+          "vllm:spec_decode_num_draft_tokens": 144384,
+          "vllm:spec_decode_num_accepted_tokens": 26741,
+          "vllm:estimated_flops_per_gpu": 0,
+          "vllm:estimated_read_bytes_per_gpu": 0,
+          "vllm:estimated_write_bytes_per_gpu": 0,
+          "vllm:num_requests_running": 0.0,
+          "vllm:num_requests_waiting": 0.0,
+          "vllm:num_requests_waiting_by_reason": 0.0,
+          "vllm:engine_sleep_state": 0.0,
+          "vllm:kv_cache_usage_perc": 0.0,
+          "vllm:prefix_cache_queries": 0,
+          "vllm:prefix_cache_hits": 0,
+          "vllm:external_prefix_cache_queries": 0,
+          "vllm:external_prefix_cache_hits": 0,
+          "vllm:mm_cache_queries": 0,
+          "vllm:mm_cache_hits": 0,
+          "vllm:num_preemptions": 0,
+          "vllm:prompt_tokens": 899,
+          "vllm:prompt_tokens_by_source": 0,
+          "vllm:prompt_tokens_cached": 0,
+          "vllm:generation_tokens": 31261,
+          "vllm:request_success": 0,
+          "vllm:lora_requests_info": 1788901365.0594823,
+          "vllm:cache_config_info": 1.0
+        },
+        "grading_status": "complete",
+        "limit": 8,
+        "max_tokens": 32768,
+        "num_samples": 1,
+        "full_dataset": false,
+        "timing": "offline generate; startup excluded; no request warmup",
+        "sampling_semantics": "Ascend joint top-k/top-p, identical for AR and UNO",
+        "tpf_scope": "aggregate useful outputs / (2 * request verification iterations); not a speedup",
+        "accuracy": {
+          "grader": "math",
+          "num_rows": 8,
+          "num_problems": 8,
+          "samples_per_problem": 1,
+          "num_correct": 8,
+          "accuracy": 1.0,
+          "avg_at_1": 1.0,
+          "pass_at_1": 1.0,
+          "num_correct_at_1": 8
+        },
+        "grader_versions": {
+          "math-verify": "0.9.0",
+          "sympy": "1.14.0"
+        }
+      }
+    },
+    "parity_to_v10": {
+      "ar": {
+        "all_output_ids_equal": true,
+        "per_problem_equal": [
+          true,
+          true,
+          true,
+          true,
+          true,
+          true,
+          true,
+          true
+        ],
+        "tokens_per_problem": [
+          1698,
+          5055,
+          3602,
+          2015,
+          4872,
+          1970,
+          3421,
+          4161
+        ],
+        "truncated": 0,
+        "generations_sha256": "c86828acf74d07c7ea1eb231675e993fe8e39bc7617c6686b6ef083bad57edec",
+        "graded_sha256": "4e241f2f7df93dbbf069415973aed96a64e51d350ff899fc10fb00d8d5e87ec8"
+      },
+      "tree": {
+        "all_output_ids_equal": true,
+        "per_problem_equal": [
+          true,
+          true,
+          true,
+          true,
+          true,
+          true,
+          true,
+          true
+        ],
+        "tokens_per_problem": [
+          1600,
+          9683,
+          3306,
+          2364,
+          3958,
+          2830,
+          3551,
+          3969
+        ],
+        "truncated": 0,
+        "generations_sha256": "5b3eedf032d1bffa5382fad19a6d87b9f0100de3ef3529d000644a40348b262f",
+        "graded_sha256": "bcffc11a74e6ba56093aabc1a5e4dc1424dd0ff63af558121cc2f649119b0d74"
+      }
+    },
+    "tree_over_ar": 1.9067073579939702,
+    "tree_over_v10_tree": 1.1561841444348047,
+    "sglang_reference": {
+      "url": "https://github.com/sgl-project/sglang/pull/37667",
+      "hardware": "H200",
+      "full_math500": true,
+      "ar_tps": 183.12,
+      "tree_tps": 508.56,
+      "tree_over_ar": 2.7771952817824377,
+      "tree_tpf": 3.45
+    }
+  },
+  "validation": {
+    "cpu_passed": 153,
+    "npu_passed": 21,
+    "npu_seconds": 92.39,
+    "greedy_ar_parity": true,
+    "stable_rounds": 2,
+    "source_ci": {
+      "results": [
+        {
+          "check": "format-ci",
+          "exit_code": 0
+        },
+        {
+          "check": "ruff-check",
+          "exit_code": 0
+        },
+        {
+          "check": "ruff-format",
+          "exit_code": 0
+        },
+        {
+          "check": "logger",
+          "exit_code": 0
+        },
+        {
+          "check": "symbolic-meta",
+          "exit_code": 0
+        },
+        {
+          "check": "gitleaks",
+          "exit_code": 0
+        }
+      ],
+      "automatic_hook_skips": [
+        "ruff-check",
+        "ruff-format",
+        "clang-format",
+        "shellcheck",
+        "gitleaks-offline-scan",
+        "check-logger",
+        "check-long-functions",
+        "check-symbolic-meta"
+      ],
+      "isolated_worktree_changes": "",
+      "full_ci_green": false,
+      "limitations": [
+        "C++ hook blocked by Windows policy; no C++ change.",
+        "Shellcheck absent; no shell change.",
+        "Explicit interpreters used for known hook discovery failures."
+      ]
+    }
+  },
+  "runtime": {
+    "container": "d6d03b198bb2838bf5af173a472dfe5db728c319d83a8fb0709ab28e7fc68776",
+    "launch": [
+      "docker",
+      "run",
+      "-d",
+      "--privileged",
+      "--name",
+      "uno-align-v16",
+      "--network",
+      "host",
+      "--shm-size=16g",
+      "-v",
+      "/data01/uno-work/sglang_alignment_20260908/v16/runtime-source:/vllm-workspace/vllm-ascend:ro",
+      "-v",
+      "/usr/local/bin/npu-smi:/usr/local/bin/npu-smi:ro",
+      "-v",
+      "/data01/uno-work/sglang_alignment_20260908:/alignment",
+      "-v",
+      "/data01/models:/models:ro",
+      "-v",
+      "/usr/local/dcmi:/usr/local/dcmi:ro",
+      "-v",
+      "/usr/local/Ascend/driver:/usr/local/Ascend/driver:ro",
+      "-e",
+      "ASCEND_RT_VISIBLE_DEVICES=0",
+      "-e",
+      "HF_HUB_OFFLINE=1",
+      "-e",
+      "TRANSFORMERS_OFFLINE=1",
+      "--entrypoint",
+      "bash",
+      "sha256:b936552e3c49668f1c9be8777d3d879e0bb6b2dc41f6417dedea84ed8f68eb9f",
+      "-c",
+      "sleep infinity"
+    ],
+    "abi_manifest": [
+      {
+        "path": "/data01/uno-work/sglang_alignment_20260908/v16/runtime-source/vllm_ascend/libvllm_ascend_kernels.so",
+        "sha256": "4b7079cdca151c0a22ff651a0017adadd4c0ad4d11fdbe49d3f55e1ee3817552",
+        "baseline": "/data01/uno-work/vllm-ascend/vllm_ascend/libvllm_ascend_kernels.so"
+      },
+      {
+        "path": "/data01/uno-work/sglang_alignment_20260908/v16/runtime-source/vllm_ascend/vllm_ascend_C.cpython-312-aarch64-linux-gnu.so",
+        "sha256": "e58b455d1ff4c510ca299233d942864843f5f50c3417d5d6693795378a8d49ed",
+        "baseline": "/data01/uno-work/vllm-ascend/vllm_ascend/vllm_ascend_C.cpython-312-aarch64-linux-gnu.so"
+      }
+    ],
+    "physical_device": 0,
+    "http_port_reserved": 8018,
+    "http_bench_run": false
+  },
+  "limitations": [
+    "First8 MATH500 only; not SGLang full500 parity.",
+    "One run per configuration; no confidence interval.",
+    "Tree overlapped bounded probes on separate physical card1; final controlled pair must exclude probes.",
+    "Ascend uses joint top-k/top-p consistently; SGLang UNO uses top-k-first, while its AR FlashInfer path uses joint.",
+    "Full CI not green: preserved Windows C++ policy block and missing shellcheck."
+  ],
+  "rejected": [
+    {
+      "source_commit": "21b7405b8ca1fbe4be41309f12dc43aa03aa777c",
+      "change": "previous-replay event fence",
+      "reason": "110.91004332635183 TPS vs retained111.73831764549615, same outputs"
+    },
+    {
+      "source_commit": "46dde80f16d66d0c433a5a35837124047d006cb9",
+      "change": "native BF16 LoRA shrink",
+      "reason": "111.53794321871445 TPS, changed output lengths; no demonstrated end-to-end gain"
+    },
+    {
+      "source_commit": "0a90cf669c8d4d3e552e95ea9b9d69df48d008ed",
+      "change": "sparse mask update",
+      "reason": "Short tests passed, long MATHfirst8 only2/8correct. Root cause unknown; reverted. Micro timing ended at frontier=capacity and cannot establish active-tree gain."
+    }
+  ],
+  "artifact_hashes": [
+    {
+      "path": "v16/paired-results.json",
+      "sha256": "2ff7ebfe42f4b41558b778a83f12b9695b969d07b25a0dee7ce24bf0b371eef7"
+    },
+    {
+      "path": "v16/kernel-validation.log",
+      "sha256": "bb844f2321a8948da0c56f605fc9dab76223dca14540ec639a4078d96059d8ab"
+    },
+    {
+      "path": "v16/smoke-tree-graph.json",
+      "sha256": "5d374194c4a521ad81c454a17331b890c824e1f65905164b588d279130c4b6cc"
+    },
+    {
+      "path": "v16/manifest.json",
+      "sha256": "13a4f446a319a161d843f888c409831817eade97be329ff13a4f45855c5d4442"
+    },
+    {
+      "path": "v16/abi-manifest.json",
+      "sha256": "a63f39adc3f7618fe40345c915e2c46bcfab620cd4721d384bb9d7ee43a5eaea"
+    },
+    {
+      "path": "v16/profile-tree-nostack-summary.json",
+      "sha256": "573031497134b8bb30f0fb02cbf589f1f17d291c15e2942cde157e2d6d1acaa4"
+    },
+    {
+      "path": "v18/tree-comparison.json",
+      "sha256": "ee35252d8a4786db9aff48b220fa3a8d7d40b174f6c5d005082ebd6b0a5453ac"
+    },
+    {
+      "path": "v20/tree-summary.json",
+      "sha256": "ea3def2f84392c5e0fb4c7f6bb5aea5909e751785047035fcd1a7672c4d5ffb9"
+    },
+    {
+      "path": "v21/tree-comparison.json",
+      "sha256": "20718c68680ba0b4a3922a018940a6346540711e14563c7a3a79e143408a154b"
+    }
+  ]
+}
