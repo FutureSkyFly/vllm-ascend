@@ -1419,7 +1419,16 @@ class AscendSpecDecodeBaseProposer(SpecDecodeBaseProposer):
                 # `markov_emb` should also be full to match it.
                 # We changed `flash_comm_v1_enabled` to avoid `markov_emb` from being split.
                 with _disable_flash_comm_v1_context():
-                    raw_logits = self.model.compute_logits(sample_hidden_states)
+                    # Reduced-vocab drafts: run the Markov loop in draft space
+                    # (compute_draft_logits skips the d2t scatter, matching the
+                    # draft-vocab Markov bias), then remap sampled ids to target
+                    # vocab so markov_embed (target-vocab table) and the returned
+                    # draft tokens stay in target ids.
+                    compute_draft = getattr(self.model, "compute_draft_logits", None)
+                    if compute_draft is not None:
+                        raw_logits = compute_draft(sample_hidden_states)
+                    else:
+                        raw_logits = self.model.compute_logits(sample_hidden_states)
                     if lmhead_tp_enable():
                         # Keep the padded shape through the LMHead TP collective,
                         # then remove dummy sampling rows before grouping them by
@@ -1433,7 +1442,10 @@ class AscendSpecDecodeBaseProposer(SpecDecodeBaseProposer):
                         markov_emb = self.model.markov_embed(draft_token_ids[:, idx])
                         logits_bias = self.model.markov_bias(markov_emb)
                         logits[:, idx].add_(logits_bias)
-                        draft_token_ids[:, idx + 1].copy_(logits[:, idx].argmax(dim=-1))
+                        next_ids = logits[:, idx].argmax(dim=-1)
+                        if compute_draft is not None:
+                            next_ids = self.model.map_draft_to_target(next_ids)
+                        draft_token_ids[:, idx + 1].copy_(next_ids)
             else:
                 logits = self.model.compute_logits(sample_hidden_states)
                 if lmhead_tp_enable():
