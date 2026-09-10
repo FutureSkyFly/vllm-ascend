@@ -118,6 +118,100 @@ It is recommended to download the model weight to the shared directory of multip
     export IMAGE=quay.io/ascend/vllm-ascend:glm-5.3-flash
     export NAME=vllm-ascend
 
+    mkdir -p /workspace/scripts
+    cat > /workspace/scripts/start_glm53_node0_mtp3.sh <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+
+export PYTORCH_NPU_ALLOC_CONF=expandable_segments:True
+export HCCL_OP_EXPANSION_MODE=AIV
+export HCCL_BUFFSIZE=1024
+export VLLM_RPC_TIMEOUT=3600000
+export VLLM_EXECUTE_MODEL_TIMEOUT_SECONDS=3000
+export HCCL_EXEC_TIMEOUT=3600
+export HCCL_CONNECT_TIMEOUT=1200
+
+export GLOO_SOCKET_IFNAME=enp67s0f0np0
+export TP_SOCKET_IFNAME=enp67s0f0np0
+export HCCL_SOCKET_IFNAME=enp67s0f0np0
+export HCCL_IF_IP=71.10.29.134
+
+export ASCEND_RT_VISIBLE_DEVICES=0,1,2,3,4,5,6,7
+
+exec vllm serve /local_model/GLM-5.3-Flash-w8a8-requant-20260903 \
+    --host 0.0.0.0 \
+    --port 8077 \
+    --api-server-count 1 \
+    --max-model-len 133120 \
+    --data-parallel-size 2 \
+    --data-parallel-size-local 1 \
+    --data-parallel-start-rank 0 \
+    --data-parallel-address 71.10.29.134 \
+    --data-parallel-rpc-port 12321 \
+    --tensor-parallel-size 8 \
+    --enable-expert-parallel \
+    --seed 1024 \
+    --served-model-name glm \
+    --safetensors-load-strategy prefetch \
+    --max-num-seqs 32 \
+    --max-num-batched-tokens 8192 \
+    --trust-remote-code \
+    --quantization ascend \
+    --limit-mm-per-prompt '{"image":10,"video":0}' \
+    --gpu-memory-utilization 0.85 \
+    --speculative-config '{"num_speculative_tokens":3,"method":"deepseek_mtp","enforce_eager":true}' \
+    --compilation-config '{"cudagraph_mode":"FULL_DECODE_ONLY","cudagraph_capture_sizes":[4,8,16,32,128]}' \
+    > /tmp/glm53_official_dp2tp8_node0_mtp3.log 2>&1
+EOF
+
+    cat > /workspace/scripts/start_glm53_node1_mtp3.sh <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+
+export PYTORCH_NPU_ALLOC_CONF=expandable_segments:True
+export HCCL_OP_EXPANSION_MODE=AIV
+export HCCL_BUFFSIZE=1024
+export VLLM_RPC_TIMEOUT=3600000
+export VLLM_EXECUTE_MODEL_TIMEOUT_SECONDS=3000
+export HCCL_EXEC_TIMEOUT=3600
+export HCCL_CONNECT_TIMEOUT=1200
+
+export GLOO_SOCKET_IFNAME=enp67s0f0np0
+export TP_SOCKET_IFNAME=enp67s0f0np0
+export HCCL_SOCKET_IFNAME=enp67s0f0np0
+export HCCL_IF_IP=71.10.29.139
+
+export ASCEND_RT_VISIBLE_DEVICES=0,1,2,3,4,5,6,7
+
+exec vllm serve /local_model/GLM-5.3-Flash-w8a8-requant-20260903 \
+    --host 0.0.0.0 \
+    --port 8077 \
+    --headless \
+    --max-model-len 133120 \
+    --data-parallel-size 2 \
+    --data-parallel-size-local 1 \
+    --data-parallel-start-rank 1 \
+    --data-parallel-address 71.10.29.134 \
+    --data-parallel-rpc-port 12321 \
+    --tensor-parallel-size 8 \
+    --enable-expert-parallel \
+    --seed 1024 \
+    --served-model-name glm \
+    --safetensors-load-strategy prefetch \
+    --max-num-seqs 32 \
+    --max-num-batched-tokens 8192 \
+    --trust-remote-code \
+    --quantization ascend \
+    --limit-mm-per-prompt '{"image":10,"video":0}' \
+    --gpu-memory-utilization 0.85 \
+    --speculative-config '{"num_speculative_tokens":3,"method":"deepseek_mtp","enforce_eager":true}' \
+    --compilation-config '{"cudagraph_mode":"FULL_DECODE_ONLY","cudagraph_capture_sizes":[4,8,16,32,128]}' \
+    > /tmp/glm53_official_dp2tp8_node1_mtp3.log 2>&1
+EOF
+
+    chmod +x /workspace/scripts/start_glm53_node0_mtp3.sh \
+      /workspace/scripts/start_glm53_node1_mtp3.sh
+
     docker run --rm \
     --name $NAME \
     --net=host \
@@ -140,6 +234,7 @@ It is recommended to download the model weight to the shared directory of multip
     -v /usr/local/sbin:/usr/local/sbin \
     -v /etc/hccn.conf:/etc/hccn.conf:ro \
     -v /root/.cache:/root/.cache \
+    -v /workspace/scripts:/workspace/scripts \
     -it $IMAGE bash
     ```
 
@@ -279,7 +374,7 @@ Only the key parameters specific to this model/scenario are described below. `ma
         --limit-mm-per-prompt '{"image":1,"video":0}' \
         --gpu-memory-utilization 0.85 \
         --speculative-config '{"num_speculative_tokens":2,"method":"deepseek_mtp","enforce_eager":true}' \
-        --compilation-config '{"cudagraph_mode":"FULL_DECODE_ONLY","cudagraph_capture_sizes":[1,2,4,8,16,32,64,96,128,256,384]}' \
+        --compilation-config '{"cudagraph_mode":"FULL_DECODE_ONLY","cudagraph_capture_sizes":[4,8,16,32,64,96,128,256,384]}' \
         --api-server-count 1
     ```
 
@@ -329,7 +424,8 @@ Only the key parameters specific to this model/scenario are described below. `ma
         --limit-mm-per-prompt '{"image":1,"video":0}' \
         --gpu-memory-utilization 0.85 \
         --speculative-config '{"num_speculative_tokens":2,"method":"deepseek_mtp","enforce_eager":true}' \
-        --compilation-config '{"cudagraph_mode":"FULL_DECODE_ONLY","cudagraph_capture_sizes":[1,2,4,8,16,32,64,96,128,256,384]}'
+        --compilation-config '{"cudagraph_mode":"FULL_DECODE_ONLY","cudagraph_capture_sizes":[4,8,16,32,64,96,128,256,384]}' \
+        --api-server-count 1
     ```
 
 #### Key Parameter Descriptions
