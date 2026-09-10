@@ -25,6 +25,7 @@ from uuid import uuid4
 
 import torch
 import vllm.envs as envs_vllm
+import vllm_ascend.envs as envs_ascend
 from vllm.logger import logger
 from vllm.platforms import Platform, PlatformEnum
 
@@ -76,6 +77,54 @@ logger.info_once(
 _CUSTOM_OP_REGISTERED = False
 # Delete after the driver is released; temporarily hard-coded to 4
 MAX_REDUCED_CAPTURE_SIZES = 4
+
+
+def _apply_renderer_num_workers_default(vllm_config: VllmConfig) -> None:
+    """Raise the renderer thread-pool size when the deployment asks for it.
+
+    vLLM renders every request on a single renderer thread by default, which
+    serializes tokenization across concurrent requests. That only becomes
+    visible once PrefixCache is already removing most of the prefill compute;
+    below that hit rate the device time hides it entirely.
+
+    ``ModelConfig`` has finished validating itself by the time platform
+    defaults run, so the one constraint upstream enforces on this field is
+    re-checked here - raising the value afterwards would otherwise bypass it
+    silently.
+    """
+    workers = envs_ascend.VLLM_ASCEND_RENDERER_NUM_WORKERS
+    if workers <= 0:
+        return
+
+    model_config = getattr(vllm_config, "model_config", None)
+    if model_config is None:
+        return
+    current = getattr(model_config, "renderer_num_workers", None)
+    if current is None or workers <= current:
+        return
+
+    mm_config = getattr(model_config, "multimodal_config", None)
+    if (
+        mm_config is not None
+        and getattr(mm_config, "mm_processor_cache_gb", 0) > 0
+        and getattr(model_config, "runner_type", None) == "pooling"
+    ):
+        logger.warning(
+            "VLLM_ASCEND_RENDERER_NUM_WORKERS=%d ignored: a pooling model "
+            "cannot use more than one renderer worker while the multimodal "
+            "processor cache is enabled, because pooling preprocessing runs "
+            "on the renderer workers and that cache is not thread-safe. "
+            "Pass --mm-processor-cache-gb 0 to use multiple workers.",
+            workers,
+        )
+        return
+
+    logger.info(
+        "Ascend: renderer_num_workers %d -> %d (VLLM_ASCEND_RENDERER_NUM_WORKERS)",
+        current,
+        workers,
+    )
+    model_config.renderer_num_workers = workers
 
 
 class NPUPlatform(Platform):
@@ -336,6 +385,8 @@ class NPUPlatform(Platform):
         default_max_cg_capture_size = _get_default_max_cudagraph_capture_size(vllm_config)
         if default_max_cg_capture_size is not None:
             vllm_config.compilation_config.max_cudagraph_capture_size = default_max_cg_capture_size
+
+        _apply_renderer_num_workers_default(vllm_config)
 
     def num_compute_units(cls, device_id: int = 0) -> int:
         """Return the number of Cube Cores on the NPU device.

@@ -87,6 +87,22 @@ env_variables: dict[str, Callable[[], Any]] = {
     # (safe for Ascend 910B/A3). Set to a positive value to override when
     # auto-detection is unavailable or for debugging UB overflow issues.
     "VLLM_ASCEND_ROPE_UB_SIZE_KB": lambda: int(os.getenv("VLLM_ASCEND_ROPE_UB_SIZE_KB") or 0),
+    # Number of renderer worker threads the async (OpenAI-compatible) API
+    # server uses to overlap tokenization, chat-template rendering and
+    # multimodal preprocessing across concurrent requests. 0 (the default)
+    # leaves vLLM's own default of 1 untouched, so this knob is a no-op
+    # unless it is set.
+    #
+    # Kept opt-in rather than raised by default because the renderer threads
+    # share the API server's CPU budget with the engine's own frontend work,
+    # and vllm-ascend's cpu_binding spreads workers over the whole cpuset
+    # without reserving cores for the frontend; the right value therefore
+    # depends on the deployment.
+    #
+    # Measured on 910B4 x8 with DeepSeek-V4-Flash (TP8, 50K prompts, 32
+    # concurrent, ~99% PrefixCache hit): 8 workers gave p95 TTFT -7.8% and
+    # throughput +8.0% over the serial default.
+    "VLLM_ASCEND_RENDERER_NUM_WORKERS": lambda: int(os.getenv("VLLM_ASCEND_RENDERER_NUM_WORKERS") or 0),
 }
 
 # end-env-vars-definition
