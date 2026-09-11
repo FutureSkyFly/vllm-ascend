@@ -186,7 +186,10 @@ class AscendMetadata:
     # is unified.
     seq_lens: torch.Tensor = None
     seq_lens_cpu: torch.Tensor = None
-    seq_lens_list: list[int] = None  # type: ignore
+    # Host copy of ``seq_lens``. ``None`` when the builder had no exact host
+    # mirror -- that is a speculative *draft* build, whose rejections are only
+    # resolved on the device. Read it through ``get_seq_lens_list()``.
+    seq_lens_list: list[int] | None = None  # type: ignore
     actual_seq_lengths_q: list[int] = None  # type: ignore
 
     query_start_loc: torch.Tensor = None
@@ -211,6 +214,28 @@ class AscendMetadata:
     reshape_cache_event: torch.npu.Event = None
 
     pcp_local_num_input_tokens: int | None = None
+
+    def get_seq_lens_list(self) -> list[int]:
+        """Host copy of ``seq_lens``, materialising it if the builder had none.
+
+        Materialising costs a blocking device->host copy that stalls host
+        dispatch against the compute stream, so a caller that can consume a
+        device tensor should use ``seq_lens`` (or ``get_seq_lens_kv()``)
+        instead. See https://github.com/vllm-project/vllm-ascend/issues/16271
+        """
+        if self.seq_lens_list is None:
+            self.seq_lens_list = self.seq_lens.tolist()
+        return self.seq_lens_list
+
+    def get_seq_lens_kv(self) -> "list[int] | torch.Tensor":
+        """``actual_seq_lengths_kv`` for a FIA call, without forcing a D2H.
+
+        Returns the host list when the builder already had one, and the device
+        tensor otherwise. ``npu_fused_infer_attention_score_v2`` accepts the
+        tensor as ``actual_seq_kvlen``; the v1 overload only takes a list, so
+        ``forward_fused_infer_attention`` dispatches on the type.
+        """
+        return self.seq_lens if self.seq_lens_list is None else self.seq_lens_list
 
 
 class AscendAttentionMetadataBuilder(AttentionMetadataBuilder[AscendMetadata]):
@@ -365,10 +390,11 @@ class AscendAttentionMetadataBuilder(AttentionMetadataBuilder[AscendMetadata]):
         if seq_lens_mirrored_on_host:
             seq_lens_list = seq_lens_cpu_mirror.tolist()
         else:
-            # No exact host mirror for this build. Removing this last copy needs
-            # the FIA call to accept ``actual_seq_lengths_kv`` as a device
-            # tensor, the way ``full_graph_fia_v2`` already does.
-            seq_lens_list = seq_lens.tolist()
+            # No exact host mirror for this build (speculative draft build).
+            # Leave the list unmaterialised: consumers that can take a device
+            # tensor go through ``get_seq_lens_kv()``, and the ones that really
+            # need host values pay the D2H lazily in ``get_seq_lens_list()``.
+            seq_lens_list = None
         # Sequence-parallel (or cudagraph) padding makes the model runner insert a
         # dummy padding request into query_start_loc to satisfy the FIA TND-layout
         # constraint (sum of q lengths == hidden_states.shape[0]), bumping the
@@ -390,9 +416,12 @@ class AscendAttentionMetadataBuilder(AttentionMetadataBuilder[AscendMetadata]):
         # capture, and _get_fia_params derives the PrefillCacheHit batch size from
         # seq_lens.shape[0], so the tensor has to carry the dummy request too.
         num_reqs_fia = len(actual_seq_lengths_q)
-        if len(seq_lens_list) < num_reqs_fia:
-            padding_len = num_reqs_fia - len(seq_lens_list)
-            seq_lens_list = seq_lens_list + [1] * padding_len
+        # ``seq_lens_list`` may be unmaterialised here; the tensor always has
+        # the same length, so size the padding from it.
+        if seq_lens.shape[0] < num_reqs_fia:
+            padding_len = num_reqs_fia - seq_lens.shape[0]
+            if seq_lens_list is not None:
+                seq_lens_list = seq_lens_list + [1] * padding_len
             seq_lens = torch.cat([seq_lens, seq_lens.new_ones(padding_len)])
         if block_table is not None and block_table.shape[0] < num_reqs_fia:
             block_table = torch.cat(
@@ -708,12 +737,12 @@ class AscendAttentionBackendImpl(AttentionImpl):
 
                     if _EXTRA_CTX.is_draft_model:
                         draft_step, key = draft_attn_key_steps[attn_count]
-                        seq_lens = attn_metadata[draft_step][key].seq_lens_list
+                        seq_lens = attn_metadata[draft_step][key].get_seq_lens_list()
                         actual_seq_lengths_q = attn_metadata[draft_step][key].actual_seq_lengths_q
                         attn_count = attn_count + 1
                     else:
                         metadata_key = layer_name if layer_name is not None and layer_name in attn_metadata else key
-                        seq_lens = attn_metadata[metadata_key].seq_lens_list
+                        seq_lens = attn_metadata[metadata_key].get_seq_lens_list()
                         actual_seq_lengths_q = attn_metadata[metadata_key].actual_seq_lengths_q
 
                     torch.npu.graph_task_update_begin(update_stream, handle)
@@ -885,7 +914,7 @@ class AscendAttentionBackendImpl(AttentionImpl):
                     if _EXTRA_CTX.is_draft_model:
                         draft_step, key = draft_attn_key_steps[attn_count]
                         metadata = attn_metadata[draft_step][key]
-                        seq_lens = metadata.seq_lens_list
+                        seq_lens = metadata.get_seq_lens_list()
                         actual_seq_lengths_q = metadata.actual_seq_lengths_q
                         block_tables = metadata.block_tables
                         attn_count = attn_count + 1
@@ -893,7 +922,7 @@ class AscendAttentionBackendImpl(AttentionImpl):
                             sparse_mode = 0
                     else:
                         metadata_key = layer_name if layer_name is not None and layer_name in attn_metadata else key
-                        seq_lens = attn_metadata[metadata_key].seq_lens_list
+                        seq_lens = attn_metadata[metadata_key].get_seq_lens_list()
                         actual_seq_lengths_q = attn_metadata[metadata_key].actual_seq_lengths_q
                         # NOTE:
                         # For models with sliding-window attention on the FIA full-graph replay path,
@@ -957,6 +986,9 @@ class AscendAttentionBackendImpl(AttentionImpl):
         layer=None,
     ) -> torch.Tensor:
         key, value, block_size, block_table, actual_seq_lengths_kv = self._get_fia_params(key, value, attn_metadata)
+        if isinstance(actual_seq_lengths_kv, torch.Tensor):
+            # This graph path only has the v1 op, which needs host values.
+            actual_seq_lengths_kv = attn_metadata.get_seq_lens_list()
 
         num_tokens = attn_metadata.actual_seq_lengths_q[-1]
         if _EXTRA_CTX.is_draft_model:
@@ -1347,7 +1379,7 @@ class AscendAttentionBackendImpl(AttentionImpl):
             value = self.value_cache.view(  # type: ignore
                 num_block, block_size, -1
             )
-            actual_seq_lengths_kv = attn_metadata.seq_lens_list
+            actual_seq_lengths_kv = attn_metadata.get_seq_lens_kv()
         elif attn_metadata.attn_state == AscendAttentionState.DecodeOnly:
             num_block, block_size, _, _ = self.key_cache.shape  # type: ignore
             key = self.key_cache.view(  # type: ignore
@@ -1357,7 +1389,7 @@ class AscendAttentionBackendImpl(AttentionImpl):
                 num_block, block_size, -1
             )
             block_table = attn_metadata.block_tables
-            actual_seq_lengths_kv = attn_metadata.seq_lens_list
+            actual_seq_lengths_kv = attn_metadata.get_seq_lens_kv()
         # chunked prefill.
         else:
             num_block, block_size, _, _ = self.key_cache.shape  # type: ignore
@@ -1368,7 +1400,7 @@ class AscendAttentionBackendImpl(AttentionImpl):
                 num_block, block_size, -1
             )
             block_table = attn_metadata.block_tables
-            actual_seq_lengths_kv = attn_metadata.seq_lens_list
+            actual_seq_lengths_kv = attn_metadata.get_seq_lens_kv()
         return key, value, block_size, block_table, actual_seq_lengths_kv
 
     def forward_fused_infer_attention(
@@ -1408,7 +1440,7 @@ class AscendAttentionBackendImpl(AttentionImpl):
         if self.sinks is not None:
             actual_seq_qlen = attn_metadata.actual_seq_lengths_q
             if attn_metadata.attn_state == AscendAttentionState.DecodeOnly:
-                actual_seq_qlen = torch.tensor([1] * len(attn_metadata.seq_lens_list), dtype=torch.int32).cumsum(dim=0)
+                actual_seq_qlen = torch.tensor([1] * attn_metadata.seq_lens.shape[0], dtype=torch.int32).cumsum(dim=0)
             if self.sliding_window is not None:
                 sparse_mode = 4
             else:
@@ -1431,6 +1463,35 @@ class AscendAttentionBackendImpl(AttentionImpl):
                 actual_seq_kvlen=actual_seq_lengths_kv,
                 learnable_sink=self.sinks,
             )
+        elif isinstance(actual_seq_lengths_kv, torch.Tensor):
+            # The builder had no host copy of the KV lengths (speculative draft
+            # build). The v2 op takes ``actual_seq_kvlen`` as a device tensor,
+            # so use it rather than forcing a blocking D2H just to build a
+            # Python list. See issue #16271.
+            if not attn_metadata.causal:
+                sparse_mode, atten_mask, pre_tokens = 0, None, SWA_INT_MAX
+            elif self.sliding_window is not None:
+                sparse_mode, atten_mask, pre_tokens = 4, attn_metadata.attn_mask, self.sliding_window
+            else:
+                sparse_mode, atten_mask, pre_tokens = 3, attn_metadata.attn_mask, SWA_INT_MAX
+            attn_output, _ = torch_npu.npu_fused_infer_attention_score_v2(
+                query=query,
+                key=key.contiguous(),
+                value=value.contiguous(),
+                atten_mask=atten_mask,
+                block_table=block_table,
+                input_layout="TND",
+                block_size=block_size,
+                actual_seq_qlen=attn_metadata.actual_seq_lengths_q,
+                actual_seq_kvlen=actual_seq_lengths_kv,
+                num_key_value_heads=self.num_kv_heads,
+                num_query_heads=self.num_heads,
+                softmax_scale=self.scale,
+                sparse_mode=sparse_mode,
+                pre_tokens=pre_tokens,
+                next_tokens=0,
+            )
+            attn_output = attn_output.view(num_tokens, self.num_heads, self.head_size)
         else:
             if not attn_metadata.causal:
                 attn_output, _ = torch_npu.npu_fused_infer_attention_score(
@@ -1532,7 +1593,7 @@ class AscendAttentionBackendImpl(AttentionImpl):
         num_decodes = attn_metadata.num_decodes
         num_decode_tokens = attn_metadata.num_decode_tokens
         actual_seq_qlen = attn_metadata.actual_seq_lengths_q
-        seq_lens_list = attn_metadata.seq_lens_list
+        seq_lens_list = attn_metadata.get_seq_lens_list()
         num_tokens = int(actual_seq_qlen[-1])
 
         # decode part
@@ -2051,7 +2112,7 @@ class AscendC8AttentionBackendImpl(AscendAttentionBackendImpl):
         """C8 decode via FIA V1 BNSD with native paged INT8 KV + perchannel antiquant."""
         num_block, block_size, _, _ = self.key_cache.shape  # type: ignore[attr-defined]
         assert block_size % 32 == 0, f"C8 INT8 KV cache requires block_size to be a multiple of 32, got {block_size}"
-        batch_size = len(attn_metadata.seq_lens_list)
+        batch_size = attn_metadata.seq_lens.shape[0]
 
         key = self._nz_5d_view(self.key_cache, block_size)
         value = self._nz_5d_view(self.value_cache, block_size)
@@ -2063,7 +2124,7 @@ class AscendC8AttentionBackendImpl(AscendAttentionBackendImpl):
             key_antiquant_scale=layer._c8_k_aq_scale_nz_bnsd,
             value_antiquant_scale=layer._c8_v_aq_scale_nz_bnsd,
             block_table=attn_metadata.block_tables,
-            actual_seq_lengths_kv=attn_metadata.seq_lens_list,
+            actual_seq_lengths_kv=attn_metadata.get_seq_lens_list(),
             num_heads=self.num_heads,
             num_key_value_heads=self.num_kv_heads,
             input_layout="BNSD",
@@ -2111,7 +2172,7 @@ class AscendC8AttentionBackendImpl(AscendAttentionBackendImpl):
                 key_antiquant_scale=layer._c8_k_aq_scale_nz_bnsd,
                 value_antiquant_scale=layer._c8_v_aq_scale_nz_bnsd,
                 block_table=attn_metadata.block_tables[:num_decodes],
-                actual_seq_lengths_kv=attn_metadata.seq_lens_list[:num_decodes],
+                actual_seq_lengths_kv=attn_metadata.get_seq_lens_list()[:num_decodes],
                 num_heads=self.num_heads,
                 num_key_value_heads=self.num_kv_heads,
                 input_layout="BNSD",
@@ -2133,10 +2194,10 @@ class AscendC8AttentionBackendImpl(AscendAttentionBackendImpl):
             ]
 
             all_new_prefill = True
-            for i in range(num_decodes, len(attn_metadata.seq_lens_list)):
+            for i in range(num_decodes, attn_metadata.seq_lens.shape[0]):
                 q_start = actual_seq_qlen[i - 1] if i > 0 else 0
                 qlen_i = actual_seq_qlen[i] - q_start
-                if attn_metadata.seq_lens_list[i] > qlen_i:
+                if attn_metadata.get_seq_lens_list()[i] > qlen_i:
                     all_new_prefill = False
                     break
 
@@ -2150,7 +2211,7 @@ class AscendC8AttentionBackendImpl(AscendAttentionBackendImpl):
                 paged_v = self._nz_5d_view(self.value_cache, blk_size)
 
                 prefill_bt = attn_metadata.block_tables[num_decodes:]
-                prefill_sl = attn_metadata.seq_lens_list[num_decodes:]
+                prefill_sl = attn_metadata.get_seq_lens_list()[num_decodes:]
                 prefill_k, prefill_v = self._dequant_paged_kv_to_dense(
                     paged_k, paged_v, prefill_bt, prefill_sl, query.dtype, layer
                 )
@@ -2193,6 +2254,9 @@ class AscendC8AttentionBackendImpl(AscendAttentionBackendImpl):
         PrefillCacheHit gathers + dequants paged INT8 KV).
         """
         key, value, block_size, block_table, actual_seq_lengths_kv = self._get_fia_params(key, value, attn_metadata)
+        if isinstance(actual_seq_lengths_kv, torch.Tensor):
+            # The C8 path only has the v1 op, which needs host values.
+            actual_seq_lengths_kv = attn_metadata.get_seq_lens_list()
 
         actual_seq_qlen = attn_metadata.actual_seq_lengths_q
         num_tokens = int(actual_seq_qlen[-1])  # type: ignore[index]

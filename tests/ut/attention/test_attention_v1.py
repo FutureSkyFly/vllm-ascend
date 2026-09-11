@@ -238,19 +238,39 @@ class TestAscendAttentionMetadataBuilder(TestBase):
         self.assertFalse(any(src is seq_lens_device for src in tolist_sources))
         self.assertTrue(any(src.data_ptr() == seq_lens_cpu.data_ptr() for src in tolist_sources))
 
-    def test_parallel_drafting_falls_back_to_device_when_mirror_is_not_exact(self):
-        """Draft build: the host only has an optimistic bound, so keep the D2H."""
+    def test_seq_lens_cpu_is_exact_defaults_to_false(self):
+        """Unaudited producers must keep the previous (device) behaviour."""
+        self.assertFalse(AscendCommonAttentionMetadata.seq_lens_cpu_is_exact)
+
+    def test_draft_build_leaves_the_host_list_unmaterialised(self):
+        """A draft build must not copy the KV lengths back to the host at all."""
         metadata, tolist_sources, seq_lens_device, _ = self._build_parallel_drafting_metadata(
             seq_lens_cpu_is_exact=False
         )
 
+        self.assertIsNone(metadata.seq_lens_list)
         self.assertIs(metadata.seq_lens, seq_lens_device)
-        self.assertEqual(metadata.seq_lens_list, [4, 5, 6])
-        self.assertTrue(any(src is seq_lens_device for src in tolist_sources))
+        self.assertFalse(any(src is seq_lens_device for src in tolist_sources))
 
-    def test_seq_lens_cpu_is_exact_defaults_to_false(self):
-        """Unaudited producers must keep the previous (device) behaviour."""
-        self.assertFalse(AscendCommonAttentionMetadata.seq_lens_cpu_is_exact)
+    def test_get_seq_lens_list_materialises_once_and_caches(self):
+        metadata = AscendMetadata(seq_lens=torch.tensor([7, 8, 9], dtype=torch.int32))
+
+        self.assertIsNone(metadata.seq_lens_list)
+        self.assertEqual(metadata.get_seq_lens_list(), [7, 8, 9])
+        self.assertEqual(metadata.seq_lens_list, [7, 8, 9])
+        # second call reuses the cached list rather than copying again
+        self.assertIs(metadata.get_seq_lens_list(), metadata.seq_lens_list)
+
+    def test_get_seq_lens_kv_prefers_the_host_list_and_falls_back_to_the_tensor(self):
+        seq_lens = torch.tensor([7, 8, 9], dtype=torch.int32)
+
+        with_list = AscendMetadata(seq_lens=seq_lens, seq_lens_list=[7, 8, 9])
+        self.assertEqual(with_list.get_seq_lens_kv(), [7, 8, 9])
+
+        without_list = AscendMetadata(seq_lens=seq_lens)
+        self.assertIs(without_list.get_seq_lens_kv(), seq_lens)
+        # asking for the KV lengths must not have materialised the list
+        self.assertIsNone(without_list.seq_lens_list)
 
     @patch.object(AscendAttentionMetadataBuilder, "metadata_cls")
     def test_build(self, mock_ascend_metadata):

@@ -92,7 +92,7 @@ def _get_large_head_prefill_kv(
     if is_prefill_no_cache or key_cache is None or value_cache is None:
         return key[:num_tokens], value[:num_tokens], attn_metadata.actual_seq_lengths_q
 
-    seq_lens = attn_metadata.seq_lens_list
+    seq_lens = attn_metadata.get_seq_lens_list()
     if not seq_lens:
         return key[:num_tokens], value[:num_tokens], attn_metadata.actual_seq_lengths_q
 
